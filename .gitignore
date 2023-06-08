@@ -9,5 +9,7 @@
 data_input/*
 data_clean/*
 */coda/*
+models/model1/geb/coda/*
 */convergence/*
+models/model1/geb/convergence/*
 plots/*
