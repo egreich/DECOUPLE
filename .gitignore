@@ -1,0 +1,13 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+.DS_Store
+
+# Suppress folders
+data_input/*
+data_clean/*
+*/coda/*
+*/convergence/*
+plots/*
