@@ -6,6 +6,7 @@
 .DS_Store
 
 # Suppress folders
+data_raw/*
 data_input/*
 data_clean/*
 */coda/*
