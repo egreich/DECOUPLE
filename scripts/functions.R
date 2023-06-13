@@ -4,18 +4,6 @@ library(purrr)
 `%nin%` <- negate(`%in%`)
 
 
-# function that finds the index of each parameter in a jagsUI coda output
-# will put into a single list for convenient dataframe creation
-get_index <- function(jagsUI_object){
-  list_out <- list()
-  for(i in c(1:length(jagsUI_object$mean))){
-    l <- c(1:length(jagsUI_object$mean[[i]]))
-    list_out[[i]] <- l
-  }
-  out <- do.call(c, list_out)
-  out
-}
-
 
 # function that finds the index of variables to remove
 get_remove_index <- function(to_keep, list, type){
