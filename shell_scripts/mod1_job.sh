@@ -5,7 +5,8 @@
 # strip off the directory paths to get just the filename
 # BASE=`basename $1`
 varname=$1
-seed=$2
+sitename=$2
+seed=$3
 
 echo 
 echo "run('$1');"
@@ -13,6 +14,6 @@ date
 
 # Run script
 #R --no-save < $1
-Rscript ./scripts/02_run_model.R $varname $seed
+Rscript ./scripts/02_run_model.R $varname $sitename $seed
 echo "run('$1'); done"
 date

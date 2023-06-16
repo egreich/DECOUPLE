@@ -3,18 +3,19 @@
 
 model{
   for(i in Nstart:Nend){
+    
     # Likelihood for observed T, GPP, or SIF data
     Y[i] ~ dnorm(mu[i], tau.Y) # the 'true' Y should be somewhere around the mean Y, with some precision
     # Replicated data
     Y.rep[i] ~ dnorm(mu[i], tau.Y)
 
     # Compute log predictive density for WAIC
-    ldx[i] <- logdensity.norm(Y[i], Y.rep[i], tau.Y)
+    #ldx[i] <- logdensity.norm(Y[i], Y.rep[i], tau.Y)
     # Compute predictive density for WAIC:
-    dx[i] <- exp(ldx[i])
+    #dx[i] <- exp(ldx[i])
 
     # Compute squared difference for calculating posterior predictive loss
-    sqdiff[i] <- pow(Y.rep[i]-Y[i],2)
+    #sqdiff[i] <- pow(Y.rep[i]-Y[i],2)
     
     # Regression (mean) model
     mu[i] <- beta0 + main.effects[i] + squared.terms[i] + interactions[i] 
@@ -140,12 +141,12 @@ model{
   sig.Y ~ dunif(0,1000)
   
   # sum across days
-  Dsum <- sum(sqdiff[Nstart:Nend])
+  #Dsum <- sum(sqdiff[])
   
   # Compute quantities for calculating Bayesian R2
-  var.pred <- pow(sd(mu[Nstart:Nend]),2)
-  var.resid <- 1/tau.Y
-  R2 <- var.pred/(var.pred + var.resid)
+  #var.pred <- pow(sd(mu[]),2) # var.pred <- pow(sd(mu[Nstart:Nend]),2)
+  #var.resid <- 1/tau.Y
+  #R2 <- var.pred/(var.pred + var.resid)
   
   # Priors for resonse variable:
   #tau.Y ~ dgamma(0.1,0.1) # since this is associated with the data model for Y

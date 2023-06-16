@@ -6,14 +6,11 @@ library(tidyverse)
 source("./scripts/functions.R") # for assign_block function
 
 
-### Load data
-
-# Leinefelde
-lnfdatin <- read.csv("./data_input/DE-Lnf_dat.csv")
-
-# Gebesee
-gebdatin <- read.csv("./data_input/DE-Gebdata.csv")
-
+#####################################################################################
+#####################################################################################
+#####################################################################################
+#####################################################################################
+#old:
 ### Modify data columns UNITS
 WUE_GPP = gebdatin$GPP/gebdatin$ET
 gebdat <- gebdatin %>%
@@ -49,7 +46,6 @@ gebdat <- gebdatin %>%
 # Low-level sanity filtering
 # gebdat$ET <- ifelse(gebdat$ET<0, 0, gebdat$ET)
 # # Fill small amounts of data
-gebdat$Gs <- fill_small(gebdat, "Gs")
 gebdat$VPD <- fill_small(gebdat, "VPD")
 gebdat$PAR <- fill_small(gebdat, "PAR")
 # 

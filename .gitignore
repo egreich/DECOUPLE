@@ -1,3 +1,4 @@
+# Suppress files related to R project
 .Rproj.user
 .Rhistory
 .RData
@@ -5,13 +6,16 @@
 *.Rproj
 .DS_Store
 
-# Suppress folders
+# Temporarily suppress folders related to heavy data storage
 data_raw/*
 data_formatted/*
 data_clean/*
 data_map/*
-*/coda/*
-models/model1/geb/coda/*
-*/convergence/*
-models/model1/geb/convergence/*
+models/old/*
+output_model1/convergence/*
+output_model2/convergence/*
+output_model1/coda/*
+output_model2/coda/*
+output_model1/df/*
+output_model2/df/*
 plots/*

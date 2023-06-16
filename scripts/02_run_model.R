@@ -5,24 +5,58 @@ args<-commandArgs(TRUE)
 print(args)
 print("varname:")
 (varname <- as.numeric(args[1]))
+print("sitename:")
+(sitename <- as.numeric(args[2]))
 print("seed:")
-(SEED <- as.numeric(args[2]))
+(SEED <- as.numeric(args[3]))
 
 # Set defined R seed
 set.seed(SEED, kind = NULL, normal.kind = NULL)
 # Generate "random" seed for jags
 JAGS.seed<-ceiling(runif(1,1,10000000))
 
-# key for which site corresponds to which index
+# to test the function
+test=F
+if(test==T){
+  varname <- 4
+  sitename <- 4
+}
+
+# key for which response variable corresponds to which index
 if(varname == 1){
   varname = "ET"
 } else if(varname == 2){
   varname = "GPP"
 } else if(varname == 3){
-  varname = "SIF_O2B_sfm"
-} #else if(varname == 4){
-  #varname = "SIF_O2A_sfm"
-#}
+  varname = "SIF_O2A"
+} else if(varname == 4){
+  varname = "WUE_GPP"
+} else if(varname == 5){
+  varname = "WUE_SIF"
+}
+# key for which response site corresponds to which index
+if(sitename == 1){
+  sitename = "lae"
+  load("./data_clean/laedat.RData")
+} else if(sitename == 2){
+  sitename = "crk"
+  load("./data_clean/crkdat.RData")
+} else if(sitename == 3){
+  sitename = "geb"
+  load("./data_clean/gebdat.RData")
+} else if(sitename == 4){
+  sitename = "lnf"
+  load("./data_clean/lnfdat.RData")
+} else if(sitename == 5){
+  sitename = "yat"
+  load("./data_clean/yatdat.RData")
+} else if(sitename == 6){
+  sitename = "jrs"
+  load("./data_clean/jrsdat.RData")
+} else if(sitename == 7){
+  sitename = "sq"
+  load("./data_clean/sqdat.RData")
+}
 
 # Load libraries
 # if(!"dplyr" %in% installed.packages()) {
@@ -50,9 +84,8 @@ library(gsubfn) # for gsub for table org
 source("./scripts/functions.R")
 source("./scripts/run_mod1_function.R")
 
-load("./data_clean/gebdat.Rdata")
-
-run_mod1(gebdat, varname = varname, sitename = "geb", newinits = T, overwrite = T, post_only = T)
+# Run mod1
+run_mod1(dat, varname = varname, sitename = sitename, newinits = T, overwrite = T, post_only = F)
 
 
 

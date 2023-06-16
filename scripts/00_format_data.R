@@ -42,7 +42,7 @@ laedat <- data.frame(
   #CO2
   #G
   LE = laedatin$LE,
-  ET = laedatin$ET,
+  ET = as.numeric(laedatin$LE)*0.0352512,
   H = laedatin$H,
   NEE = laedatin$NEE,
   #RECO,
@@ -57,12 +57,12 @@ laedat <- data.frame(
   SIF_O2B = laedatin$SIF_O2B,
   NDVI = laedatin$NDVI,
   PRI = laedatin$PRI,
-  Ref_650_660 = laedatin$Ref_650_660_Reflectance,
-  Ref_660_670 = laedatin$Ref_660_670_Reflectance,
-  Ref_670_680 = laedatin$Ref_670_680_Reflectance,
-  Ref_700_710 = laedatin$Ref_700_710_Reflectance,
-  Ref_770_780 = laedatin$Ref_770_780_Reflectance,
-  Ref_780_790 = laedatin$Ref_780_790_Reflectance,
+  Ref_650_660 = laedatin$R650_660,
+  Ref_660_670 = laedatin$R660_670,
+  Ref_670_680 = laedatin$R670_680,
+  Ref_700_710 = laedatin$R700_710,
+  Ref_770_780 = laedatin$R770_780,
+  Ref_780_790 = laedatin$R780_790,
   Gs = laedatin$Gs_ms
 )
 
@@ -129,6 +129,9 @@ crkdat <- data.frame(
 
 crkdat[crkdat==-9999] <- NA # replace -9999 with NAs
 
+# Fix TIMESTAMP
+crkdat$TIMESTAMP <- mdy_hm(paste(crkdat$TIMESTAMP))
+
 write.csv(crkdat, file = "data_formatted/Crk/Crk_dat.csv") # save data as csv file
 
 
@@ -138,7 +141,7 @@ gebdatin <- read.csv("./data_raw/DE-Geb/DE-Geb_dat.csv")
 gebdat <- data.frame(
   Year = gebdatin$Year,
   DOY = gebdatin$DOY,
-  TIMESTAMP = gebdatin$TIMESTAMP,
+  TIMESTAMP = paste(gebdatin$DATE, gebdatin$TIMESTAMP),
   TA = gebdatin$TA_1_1_1,
   SW_IN = gebdatin$SWIN_1_1_1,
   LW_IN = gebdatin$LWIN_1_1_1,
@@ -155,7 +158,7 @@ gebdat <- data.frame(
   #CO2
   #G
   LE = gebdatin$LE,
-  ET = gebdatin$ET,
+  ET = gebdatin$LE*0.0352512,
   H = gebdatin$H,
   NEE = gebdatin$NEE,
   #RECO,
@@ -322,10 +325,10 @@ yatdat_full <- data.frame(
   SW_OUT = yatdatin_full$SWOUT_1_1_1,
   LW_OUT = yatdatin_full$LWOUT_1_1_1,
   LE = yatdatin_full$LE,
-  ET = yatdatin_full$ET,
+  ET = as.numeric(yatdatin_full$LE)*0.0352512,
   H = yatdatin_full$H,
   NEE = yatdatin_full$NEE,
-  GPP = yatdatin_full$GPP,
+  GPP = as.numeric(yatdatin_full$GPP)*-1, # fix sign inconcsistency
   SWC_1_1_1 = yatdatin_full$SWC_1_1_1,
   SWC_1_2_1 = yatdatin_full$SWC_1_2_1,
   SWC_1_3_1 = yatdatin_full$SWC_1_3_1,
@@ -346,6 +349,8 @@ yatdat_full <- data.frame(
 
 # Fix dates
 yatdat_full$TIMESTAMP = mdy_hm(paste(yatdat_full$date, yatdat_full$time))
+yatdat_full$DOY = difftime(yatdat_full$TIMESTAMP,as.POSIXct(as.Date("2017-01-01 00:00")))
+yatdat_full$DOY<-gsub(" days","",yatdat_full$DOY)
 
 
 yatdat_cropped <- data.frame(
@@ -361,25 +366,22 @@ yatdat_cropped <- data.frame(
   #Gs
 )
 # Fix dates
-library(chron)
 yatdat_cropped$time <- paste(yatdat_cropped$DOY %/% 1, times(yatdat_cropped$DOY %% 1))
 yatdat_cropped$time <- sub("^\\S+\\s+", '', yatdat_cropped$time)
 yatdat_cropped$TIMESTAMP = ymd_hms(paste(yatdat_cropped$TIMESTAMP, yatdat_cropped$time))
 
+yatdat_cropped <- yatdat_cropped %>%
+  select(-c(Year,DOY,time))
 yatdat_full <- yatdat_full %>%
-  select(-c(Year,DOY,date,time))
+  select(-c(date,time))
 
 
 # Join to include met info from the full day
 yatdat <- left_join(yatdat_full, yatdat_cropped, by = "TIMESTAMP")
 
-# Pick which columns to include
+# Reorder columns
 yatdat <- yatdat %>%
-  select(-c(Year,time,DOY))
-yatdat <- yatdat %>%
-  mutate(Year = 2017)
-yatdat <- yatdat %>%
-  relocate(Year, TIMESTAMP)
+  relocate(Year, DOY, TIMESTAMP)
 
 yatdat[yatdat==-9999] <- NA # replace -9999 with NAs
 

@@ -7,7 +7,7 @@
 #SBATCH --mem=80000
 #SBATCH --mail-type=all
 #SBATCH --mail-user=egr65@nau.edu
-#SBATCH --array=1-3
+#SBATCH --array=1-35
 
 ### %A is monsoon job number %a is interior array index
 
@@ -18,7 +18,8 @@ chmod +x scripts/02_run_model.R # for permissions
 
 ##site=$(sed -n "$SLURM_ARRAY_TASK_ID"p siteEND)
 varname=$(sed -n "$SLURM_ARRAY_TASK_ID"p varnameEND)
+sitename=$(sed -n "$SLURM_ARRAY_TASK_ID"p sitenameEND)
 seed=$(sed -n "$SLURM_ARRAY_TASK_ID"p seedEND)
 
 # Run the analysis
-srun ./shell_scripts/mod1_job.sh $varname $seed
+srun ./shell_scripts/mod1_job.sh $varname $sitename $seed

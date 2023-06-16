@@ -3,29 +3,31 @@
 run_mod1 <- function(dataIN, varname, sitename, newinits = F, overwrite = F, lowdev = F, post_only = F){
   
   # Temp for testing, comment out before using the function
-  # dataIN = gebdat
-  # varname = "GPP"
-  # sitename = "geb"
-  # overwrite = T
-  # newinits = T
-  # lowdev = F
+  if(test==T){
+    dataIN = dat
+    overwrite = F
+    newinits = T
+    lowdev = F
+  }
   
   # Define filenames
-  modelname <- "./models/model1/modv1.R"
-  initfilename <- paste("./models/model1/", sitename, "/inits/inits_", varname, ".RData", sep = "")
-  jm_codafilename <- paste("./models/model1/", sitename, "/coda/jm_coda_", varname,".RData", sep = "")
-  mcmcfoldername <- paste("./models/model1/", sitename, "/convergence/", varname, sep = "")
+  modelname <- "./models/model1.R"
+  initfilename <- paste("./output_model1/inits/", sitename, "/inits_", varname, ".RData", sep = "")
+  jm_codafilename <- paste("./output_model1/coda/", sitename, "/jm_coda_", varname,".RData", sep = "")
+  mcmcfoldername <- paste("./output_model1/convergence/", sitename, "/", varname, sep = "")
   mcmcfilename <- paste("MCMC_", varname, sep = "")
-  dffilename <- paste("./models/model1/", sitename,"/coda/df_mod1_", sitename, "_", varname, ".csv", sep = "")
+  dffilename <- paste("./output_model1/df/df_", sitename, "_", varname, ".csv", sep = "")
   
-  # Create necessary folders if they do not already exist
-  if(!file.exists(paste("models/model1/", sitename, sep = ""))) { dir.create(paste("models/model1/", sitename, sep = ""))}
-  if(!file.exists(paste("models/model1/", sitename, "/inits", sep = ""))) { dir.create(paste("models/model1/", sitename, "/inits", sep = ""))}
-  if(!file.exists(paste("models/model1/", sitename, "/coda", sep = ""))) { dir.create(paste("models/model1/", sitename, "/coda", sep = ""))}
-  if(!file.exists(paste("models/model1/", sitename, "/convergence", sep = ""))) { dir.create(paste("models/model1/", sitename, "/convergence", sep = ""))}
-  if(!file.exists(mcmcfoldername)) { dir.create(mcmcfoldername)}
-  
-  
+  # Create necessary directories if they do not already exist
+  if(!dir.exists(paste("output_model1/inits", sep = ""))){ dir.create(paste("output_model1/inits", sep = ""))}
+  if(!dir.exists(paste("output_model1/coda", sep = ""))){ dir.create(paste("output_model1/coda", sep = ""))}
+  if(!dir.exists(paste("output_model1/convergence", sep = ""))){ dir.create(paste("output_model1/convergence", sep = ""))}
+  if(!dir.exists(paste("output_model1/inits/", sitename, sep = ""))){ dir.create(paste("output_model1/inits/", sitename, sep = ""))}
+  if(!dir.exists(paste("output_model1/coda/", sitename, sep = ""))){ dir.create(paste("output_model1/coda/", sitename, sep = ""))}
+  if(!dir.exists(paste("output_model1/convergence/", sitename, sep = ""))){ dir.create(paste("output_model1/convergence/", sitename, sep = ""))}
+  if(!dir.exists(mcmcfoldername)){ dir.create(mcmcfoldername)}
+  if(!dir.exists(paste("output_model1/df", sep = ""))){ dir.create(paste("output_model1/df", sep = ""))}
+
   #####################################################################
   #Part 1: Model setup
   
@@ -38,10 +40,19 @@ run_mod1 <- function(dataIN, varname, sitename, newinits = F, overwrite = F, low
   # NOTE: Kym did this to only test growing season response variables (4/1 to 10/31 for each year)
   YIN = dataIN %>%
     rowid_to_column("ind") %>% # ind: index to link the growing season Y variables back to the appropriate row in the covariate data set
-    filter(!is.na(SIF_O2A_sfm)) %>% # filter from 7:30 am to 4:00 pm everyday, when SIF data was taken
-    select(ind, GPP, SIF_O2A_sfm, SIF_O2B_sfm, all_of(varname)) # select variables we will be using as Y variables
+    mutate(time = as.numeric(format(TIMESTAMP, "%H%M"))) %>%
+    filter(between(time, 730, 1600)) %>% # filter from 7:30 am to 4:00 pm everyday
+    filter(!is.na(SIF_O2A)) %>% # filter any starting/ending gaps for SIF out that we don't want to fill
+    filter(!is.na(ET)) %>%
+    filter(!is.na(GPP)) %>%
+    filter(!is.na(TA)) %>% # filter any weird start/end gaps for envir variables, this won't cause gaps in the middle of the day, since we already gap-filled
+    filter(!is.na(VPD)) %>%
+    filter(!is.na(PAR)) %>%
+    filter(!is.na(SWC_shall)) %>%
+    filter(!is.na(SWC_deep)) %>%
+    select(ind, all_of(varname)) # select variables we will be using as Y variables
 
-  # Change Y to the column for the response variable of interest (Gs, GPP, or SIF) 
+  # Change Y to the column for the response variable of interest
   Y  = YIN[,varname]
   Yday = YIN$ind
   
@@ -64,7 +75,7 @@ run_mod1 <- function(dataIN, varname, sitename, newinits = F, overwrite = F, low
   # Choose the starting index. This is an index for a row in the Y data file. 
   # The value in the indexed row should be greater than 1 to accommodate 
   # calculation of antecedent values.
-  Nstart = YIN$ind[1]
+  Nstart = 1
   # Choose the ending index. 
   Nend   = length(Y)
   
@@ -80,11 +91,11 @@ run_mod1 <- function(dataIN, varname, sitename, newinits = F, overwrite = F, low
               ID1 = jIND[,2], 
               ID2 = jIND[,3],
               jlength = nrow(jIND),
-              VPD = as.vector(scale(dataIN$VPD,center=TRUE,scale=TRUE)), # scale function takes vector of values, centers and scales by SD
-              Tair = as.vector(scale(dataIN$Tair,center=TRUE,scale=TRUE)),
-              PAR = as.vector(scale(dataIN$PAR,center=TRUE,scale=TRUE)),
-              Sshall = as.vector(scale(dataIN$SWC_shall,center=TRUE,scale=TRUE)),
-              Sdeep = as.vector(scale(dataIN$SWC_deep,center=TRUE,scale=TRUE)),
+              VPD = as.vector(scale(as.numeric(dataIN$VPD),center=TRUE,scale=TRUE)), # scale function takes vector of values, centers and scales by SD
+              Tair = as.vector(scale(as.numeric(dataIN$TA),center=TRUE,scale=TRUE)),
+              PAR = as.vector(scale(as.numeric(dataIN$PAR),center=TRUE,scale=TRUE)),
+              Sshall = as.vector(scale(as.numeric(dataIN$SWC_shall),center=TRUE,scale=TRUE)),
+              Sdeep = as.vector(scale(as.numeric(dataIN$SWC_deep),center=TRUE,scale=TRUE)),
               # covariate timesteps into the past
               # this code is flexible in case we want to combine timesteps
               C1 = c(0, 1, 2, 3, 4, 5), #stop times for covariates
@@ -143,8 +154,8 @@ run_mod1 <- function(dataIN, varname, sitename, newinits = F, overwrite = F, low
              "beta0","beta1","beta1a","beta2", # intercept, main effects, squared effects, interactive effects
              "dYdX", # net sensitivites
              "sig.Y", # variance of Y
-             "wV","wT", "wP","wSs","wSd", # importance weights
-             "R2") # model fit
+             "wV","wT", "wP","wSs","wSd") # importance weights
+             #"R2") # model fit
   
   if(post_only==F){ # if we want to run the model
     # Run model with jagsui package
@@ -154,9 +165,9 @@ run_mod1 <- function(dataIN, varname, sitename, newinits = F, overwrite = F, low
                    model.file = modelname,
                    parameters.to.save = params,
                    n.chains = 3,
-                   n.adapt = 1000,
-                   n.thin = 10,
-                   n.iter = 30000,
+                   n.adapt = 500,
+                   n.thin = 3,
+                   n.iter = 10000,
                    parallel = TRUE)
     end<-proc.time()
     elapsed<- (end-start)/60
@@ -246,7 +257,7 @@ run_mod1 <- function(dataIN, varname, sitename, newinits = F, overwrite = F, low
     save(saved_state, file = initfilename) #for local
   }
   
-  # If converged, run and save replicated data
+  # If converged, run and save replicated data. I'm not running this, because I'm calculating Bayesian R2 inside the model code
   # jm_rep <- update(jagsui, parameters.to.save = "Y.rep",
   #                  n.iter = 15000, n.thin = 5)
   # 
