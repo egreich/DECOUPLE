@@ -7,13 +7,18 @@ library(terra)
 library(cowplot)
 
 # Create necessary folders if they do not already exist
-if(!file.exists("plots")) { dir.create("plots")}
+if(!dir.exists("plots")) { dir.create("plots")}
 
 path_out = "./plots/" # set save path
 
 
 # Load site data
-df_sites <- read.csv("./data_input/sitedata.csv")
+df_sites <- read.csv("./data_formatted/sitedata.csv")
+
+sitesused <- c("lnf", "crk", "yat", "sq", "jrs", "geb", "lae", "lm1", "mpj")
+
+df_sites <- df_sites %>%
+  filter(sitecode %in% sitesused)
 
 #df_sites <- df_sites[-c(32:47),] # get rid of extra rows
 
@@ -55,8 +60,7 @@ plot(points,add=T)
 
 
 # mapping
-#sm=rast("./data_input/aridity_36km.tif") # aridity
-sm=rast("./data_input/SMAP_SM.tif") # SMAP soil moisture data
+sm=rast("./data_misc/aridity_index.tif") # Terraclim aridity
 print(sm)
 # Make custom color palette
 library(unikn)
@@ -71,7 +75,7 @@ p <- ggplot() +
   geom_spatraster(data = sm) +
   geom_point(data = df_sites, aes(x=lon, y=lat), color = "black", size=1) +
   scale_fill_gradientn(colors=mypal2,                               # Use user-defined colormap
-                       name = "Soil Moisture",                                 # Colorbar name
+                       name = "Aridity",                                 # Colorbar name
                        na.value = "transparent",                    # transparent NA cells
                        labels=(c("0", "0.2", "0.4", "0.6", "0.8")), # Colorbar labels
                        breaks=seq(0,0.8,by=0.2),                    # Set breaks of colorbar
@@ -101,9 +105,11 @@ RobinsonPlot <- ggplot() +
                   alpha  = 0.5) +
   ggtitle("Site Locations") +              # Add title
   scale_fill_gradientn(colors=mypal2,           # Use user-defined colormap
-                       name = "Soil Moisture",  # Name of the colorbar
+                       name = "Aridity",  # Name of the colorbar
                        na.value = "transparent",# Set color for NA values
-                       lim=c(0,0.8))+           # Z axis limit
+                       labels=(c("Hyper-arid", "Arid","Semi-arid", "Dry sub-humid", "Humid")), # Colorbar labels
+                       breaks=c(0.05, 0.2, 0.5, 0.65, 0.8),
+                       lim=c(0,1))+           # Z axis limit
   theme_minimal()+                              # Select theme. Try 'theme_void'
   theme(plot.title = element_text(hjust =0.5),  # Place title in the middle of the plot
         text = element_text(size = 12))+        # Adjust plot text size for visibility
@@ -145,17 +151,66 @@ plot_2 <- plot_1 +
 plot_2
 
 p <- whittaker_base_plot() +
-  # add the temperature - precipitation data points
   geom_point(data = df_sites, 
              aes(x = MAT, 
                  y = MAP), 
+                 size   = 4,
+                 #shape  = 21,
+                 colour = "black", 
+                 fill   = "black",
+                 stroke = 1,
+                 alpha  = 0.9) +
+  # add the temperature - precipitation data points
+  geom_point(data = df_sites, 
+             aes(x = MAT, 
+                 y = MAP,
+                 color = Sites), 
              size   = 3,
-             shape  = 21,
-             colour = "gray95", 
+             #shape  = 21,
+             #colour = "gray95", 
              fill   = "black",
              stroke = 1,
-             alpha  = 0.5) +
-  theme_bw()
+             alpha  = 0.9) +
+  theme_bw() +
+  theme(legend.position = "right",
+        legend.text=element_text(size=18),
+        text = element_text(size=24),
+        plot.title = element_text(hjust = 0.5))+
+  theme(legend.spacing.y = unit(.2, 'cm'))  +
+  ## important additional element
+  guides(fill = guide_legend(byrow = TRUE))
 p
 
-ggsave2("whittaker.png", plot = p, path = path_out)
+ggsave2("whittaker.png", plot = p, path = path_out, width = 6, height = 10)
+
+
+p <- whittaker_base_plot() +
+  geom_point(data = df_sites, 
+             aes(x = MAT, 
+                 y = MAP), 
+             size   = 4,
+             #shape  = 21,
+             colour = "black", 
+             fill   = "black",
+             stroke = 1,
+             alpha  = 0.9) +
+  # add the temperature - precipitation data points
+  geom_point(data = df_sites, 
+             aes(x = MAT, 
+                 y = MAP,
+                 color = Site), 
+             size   = 3,
+             #shape  = 21,
+             #colour = "gray95", 
+             fill   = "black",
+             stroke = 1,
+             alpha  = 0.9) +
+  theme_bw() +
+  theme(legend.position = "none",
+        legend.text=element_text(size=18),
+        text = element_text(size=28),
+        plot.title = element_text(hjust = 0.5))
+p
+
+ggsave2("whittaker_nolegend.png", plot = p, path = path_out, width = 8, height = 8)
+

@@ -14,6 +14,6 @@ date
 
 # Run script
 #R --no-save < $1
-Rscript ./scripts/02_run_model.R $varname $sitename $seed
+Rscript ./scripts/02a_run_model1.R $varname $sitename $seed
 echo "run('$1'); done"
 date
