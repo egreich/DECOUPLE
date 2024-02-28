@@ -111,8 +111,10 @@ laedatin <- laedatin[-1,] # get rid of unit row, as these are recorded in the RE
 laedatin$TIMESTAMP <-as.POSIXct(laedatin$TIMESTAMP, format = "%Y%m%d %H:%M:%S")
 
 # Combine dataframes
-laedatin <- left_join(laedatin, fluxlaedatin)
-laedatin <- left_join(laedatin, tmp_tea)
+laedatin1 <- left_join(laedatin, fluxlaedatin)
+laedatin2 <- left_join(laedatin1, tmp_tea, by = "TIMESTAMP") # problem with joining by timestamp, so the following lines are a workaround
+laedatin2$TIMESTAMP <- laedatin1$TIMESTAMP
+laedatin <- laedatin2
 
 # Reformat
 laedat <- data.frame(
@@ -132,7 +134,7 @@ laedat <- data.frame(
   SW_OUT = laedatin$SWOUT_1_1_1,
   LW_OUT = laedatin$LWOUT_1_1_1,
   LE = laedatin$LE,
-  ET = as.numeric(laedatin$LE)*0.0352512,
+  ET = convert.LE.to.ET(scale = "halfhour", laedatin$TA_1_1_1, laedatin$LE),
   H = laedatin$H,
   NEE = laedatin$NEE,
   GPP = laedatin$GPP,
@@ -165,6 +167,13 @@ laedat <- laedat %>%
 laedat[,4:ncol(laedat)] <- sapply(laedat[,4:ncol(laedat)], as.numeric)
 
 laedat[laedat==-9999] <- NA # replace -9999 with NAs
+
+# convert SWC to fraction
+laedat$SWC_1 <- laedat$SWC_1/100
+laedat$SWC_2 <- laedat$SWC_2/100
+laedat$SWC_3 <- laedat$SWC_3/100
+laedat$SWC_4 <- laedat$SWC_4/100
+laedat$SWC_5 <- laedat$SWC_5/100
 
 write.csv(laedat, file = "data_formatted/CH-Lae/CH-Lae_dat.csv") # save data as csv file
 
@@ -207,7 +216,7 @@ crkdat <- data.frame(
   LW_OUT = crkdatin$RLUP.1.,
   G = as.numeric(crkdatin$G.1.),
   LE = as.numeric(crkdatin$LE),
-  ET = as.numeric(crkdatin$LE)*0.0352512,
+  ET = convert.LE.to.ET(scale = "halfhour", crkdatin$T_AIR.1., crkdatin$LE),
   H = as.numeric(crkdatin$H),
   NEE = as.numeric(crkdatin$NEE_MDS),
   RECO = as.numeric(crkdatin$RE_MDS),
@@ -231,7 +240,7 @@ crkdat[crkdat==-9999] <- NA # replace -9999 with NAs
 # Fix TIMESTAMP
 crkdat$TIMESTAMP <- mdy_hm(paste(crkdat$TIMESTAMP))
 
-write.csv(crkdat, file = "data_formatted/Crk/Crk_dat.csv") # save data as csv file
+write.csv(crkdat, file = "data_formatted/KR-Crk/Crk_dat.csv") # save data as csv file
 
 
 #################################################### Gebesee
@@ -325,8 +334,10 @@ gebdatin$TIMESTAMP <- paste(gebdatin$DATE, gebdatin$TIMESTAMP)
 gebdatin$TIMESTAMP <-as.POSIXct(gebdatin$TIMESTAMP, format = "%Y%m%d %H:%M:%S")
 
 # Combine dataframes
-gebdatin <- left_join(gebdatin, fluxgebdatin)
-gebdatin <- left_join(gebdatin, tmp_tea)
+gebdatin1 <- left_join(gebdatin, fluxgebdatin)
+gebdatin2 <- left_join(gebdatin1, tmp_tea)
+gebdatin2$TIMESTAMP <- gebdatin1$TIMESTAMP
+gebdatin <- gebdatin2
 
 gebdat <- data.frame(
   Year = gebdatin$Year,
@@ -345,7 +356,7 @@ gebdat <- data.frame(
   SW_OUT = gebdatin$SWOUT_1_1_1,
   LW_OUT = gebdatin$LWOUT_1_1_1,
   LE = gebdatin$LE,
-  ET = gebdatin$LE*0.0352512,
+  ET = convert.LE.to.ET(scale = "halfhour", gebdatin$TA_1_1_1, gebdatin$LE),
   H = gebdatin$H,
   NEE = gebdatin$NEE,
   GPP = gebdatin$GPP,
@@ -381,6 +392,13 @@ gebdat <- gebdat %>%
 gebdat[,4:ncol(gebdat)] <- sapply(gebdat[,4:ncol(gebdat)], as.numeric)
 
 gebdat[gebdat==-9999] <- NA # replace -9999 with NAs
+
+# convert SWC to fraction
+gebdat$SWC_1 <- gebdat$SWC_1/100
+gebdat$SWC_2 <- gebdat$SWC_2/100
+gebdat$SWC_3 <- gebdat$SWC_3/100
+gebdat$SWC_4 <- gebdat$SWC_4/100
+gebdat$SWC_5 <- gebdat$SWC_5/100
 
 write.csv(gebdat, file = "data_formatted/DE-geb/DE-Geb_dat.csv") # save data as csv file
 
@@ -558,6 +576,7 @@ lnfdat <- data.frame(
   SW_IN = lnfdat$SW_IN.x,
   VPD = lnfdat$VPD.x,
   RH = lnfdat$RH.x,
+  PA = lnfdat$PA,
   P = lnfdat$P,
   WS = lnfdat$WS,
   PAR = lnfdat$PAR.x,
@@ -584,6 +603,12 @@ lnfdat <- data.frame(
 )
 
 lnfdat[lnfdat==-9999] <- NA # replace -9999 with NAs
+
+# convert SWC to fraction
+lnfdat$SWC_1 <- lnfdat$SWC_1/100
+lnfdat$SWC_2 <- lnfdat$SWC_2/100
+lnfdat$SWC_3 <- lnfdat$SWC_3/100
+lnfdat$SWC_4 <- lnfdat$SWC_4/100
 
 write.csv(lnfdat, file = "data_formatted/DE-Lnf/DE-Lnf_dat.csv") # save data as csv file
 
@@ -686,8 +711,10 @@ yatdatin_full$DOY<-gsub(" days","",yatdatin_full$DOY)
 yatdatin_full$TIMESTAMP <-as.POSIXct(yatdatin_full$TIMESTAMP, format = "%Y%m%d %H:%M:%S")
 
 # Combine dataframes
-yatdatin_full <- left_join(yatdatin_full, fluxyatdatin)
-yatdatin_full <- left_join(yatdatin_full, tmp_tea, by = "TIMESTAMP")
+yatdatin_full1 <- left_join(yatdatin_full, fluxyatdatin)
+yatdatin_full2 <- left_join(yatdatin_full1, tmp_tea, by = "TIMESTAMP")
+yatdatin_full2$TIMESTAMP <- yatdatin_full1$TIMESTAMP
+yatdatin_full <- yatdatin_full2
 
 yatdat_full <- data.frame(
   Year = yatdatin_full$Year,
@@ -706,7 +733,7 @@ yatdat_full <- data.frame(
   SW_OUT = yatdatin_full$SWOUT_1_1_1,
   LW_OUT = yatdatin_full$LWOUT_1_1_1,
   LE = yatdatin_full$LE,
-  ET = as.numeric(yatdatin_full$LE)*0.0352512,
+  ET = convert.LE.to.ET(scale = "halfhour", yatdatin_full$TA_1_1_1, yatdatin_full$LE),
   H = yatdatin_full$H,
   NEE = yatdatin_full$NEE,
   GPP = as.numeric(yatdatin_full$GPP)*-1, # fix sign inconcsistency
@@ -767,6 +794,12 @@ yatdat <- yatdat %>%
   select(-c(date))
 
 yatdat[yatdat==-9999] <- NA # replace -9999 with NAs
+
+# convert SWC to fraction
+yatdat$SWC_1 <- as.numeric(yatdat$SWC_1)/100
+yatdat$SWC_2 <- as.numeric(yatdat$SWC_2)/100
+yatdat$SWC_3 <- as.numeric(yatdat$SWC_3)/100
+yatdat$SWC_4 <- as.numeric(yatdat$SWC_4)/100
 
 write.csv(yatdat, file = "data_formatted/IL-yat/IL-yat_dat.csv") # save data as csv file
 
@@ -909,16 +942,101 @@ sqdat <- rbind(sqdat17, sqdat18, sqdat19)
 sqdat$TIMESTAMP = ymd_hms(paste(sqdat$date, sqdat$time))
 sqdat$TIMESTAMP <- round_date(sqdat$TIMESTAMP, "30 mins") # fix corrupted DOY column
 
+# Create a column of all dates
+hh<- data.frame(TIMESTAMP=seq(as.POSIXct("2017-07-12 08:00:00","%Y-%m-%d %H:%M:%S"), as.POSIXct("2019-09-30 17:00:00","%Y-%m-%d %H:%M:%S"), by="hour"))
+hh30<- data.frame(TIMESTAMP=seq(as.POSIXct("2017-07-12 08:30:00","%Y-%m-%d %H:%M:%S"), as.POSIXct("2019-09-30 17:30:00","%Y-%m-%d %H:%M:%S"), by="hour"))
+fulltimes <- merge(hh,hh30,by = "TIMESTAMP",all.x=T,all.y=T)
+sqdat2 <- merge(sqdat, fulltimes,by = "TIMESTAMP",all.x=T,all.y=T)
+
 # Pick which columns to include
-sqdat <- sqdat %>%
+sqdat <- sqdat2 %>%
   select(-c(time,date))
+
+# sqdat$DOY <- difftime(sqdat$TIMESTAMP,as.POSIXct(as.Date("2017-01-01 00:00")),units='days')
+# sqdat$DOY<-gsub(" days","",sqdat$DOY)
+sqdat$Year <- format(as.Date(sqdat$TIMESTAMP, "%Y-%m-%d %H:%M:%S"), "%Y")
 
 sqdat[sqdat==-9999] <- NA # replace -9999 with NAs
 
 write.csv(sqdat, file = "data_formatted/sq/sq_dat.csv") # save data as csv file
 
 
+##################################################### Majadas
 
+# Data from David
+majdatin <- read.csv("./data_raw/ES-Lm1/all_M_monimean.csv")
+majdatin$rDate_hour <-gsub("Z","",as.character(majdatin$rDate_hour))
+majdatin$rDate_hour <-gsub("T"," ",as.character(majdatin$rDate_hour))
+majdatin$TIMESTAMP <-as.POSIXct(majdatin$rDate_hour, format = "%Y-%m-%d %H:%M:%S", tz = "CET")
+
+# FLUXNET Data (for soil moisture and temp)
+options(scipen=999) # turn off scientific notation for dates
+fluxmajdatin <- read.csv("./data_raw/ES-Lm1/FLX_ES-LM1_FLUXNET2015_FULLSET_HH_2014-2020_beta-3.csv")
+fluxmajdatin <- fluxmajdatin %>%
+  filter(TIMESTAMP_START %in% c(201801010000:201901010000))# filter for 2018
+fluxmajdatin$TIMESTAMP <-as.POSIXct(as.character(fluxmajdatin$TIMESTAMP_START), format = "%Y%m%d%H%M", tz = "CET", 
+                                    origin = "2018-01-01")
+
+# Combine dataframes
+majdatin <- left_join(majdatin, fluxmajdatin, by = "TIMESTAMP")
+
+
+# Reformat
+majdat <- data.frame(
+  Year = majdatin$year,
+  DOY = majdatin$check_DOY,
+  TIMESTAMP = majdatin$TIMESTAMP,
+  TA = majdatin$Tair_f,
+  SW_IN = majdatin$SW_in,
+  LW_IN = majdatin$LW_in,
+  LW_OUT = majdatin$LW_out,
+  VPD = majdatin$VPD_f,
+  RH = majdatin$Rh_f,
+  PA = majdatin$PA_F, # check units
+  P = as.numeric(majdatin$Precip_1_Tot), # convert m to mm
+  WS = majdatin$wind_speed,
+  PAR = majdatin$PAR_mW_m2_sr1,
+  APAR = majdatin$APAR_li_moreau_mW_m2_nm1_sr,
+  SW_OUT = majdatin$SW_out,
+  LW_OUT = majdatin$LW_out,
+  LE = majdatin$LE_f,
+  ET = convert.LE.to.ET(scale = "hour", majdatin$Tair_f, majdatin$LE_f),
+  H = majdatin$H_f,
+  NEE = majdatin$NEE_uStar_f,
+  GPP = majdatin$GPP_MR_f,
+  SWC_1 = majdatin$SWC_F_MDS_1,
+  SWC_2 = majdatin$SWC_F_MDS_2,
+  SWC_3 = majdatin$SWC_F_MDS_3,
+  SWC_4 = majdatin$SWC_F_MDS_4,
+  TS_1 = majdatin$TS_F_MDS_1,
+  TS_2 = majdatin$TS_F_MDS_2,
+  TS_3 = majdatin$TS_F_MDS_3,
+  TS_4 = majdatin$TS_F_MDS_4,
+  TS_5 = majdatin$TS_F_MDS_5,
+  TS_6 = majdatin$TS_F_MDS_6,
+  TS_7 = majdatin$TS_F_MDS_7,
+  SIF_O2A = majdatin$SIF_A_sfm..mW.m.2nm.1sr.1.,
+  SIF_O2B = majdatin$SIF_B_sfm..mW.m.2nm.1sr.1.,
+  NDVI = majdatin$NDVI,
+  PRI = majdatin$PRI,
+  Ref_750 = majdatin$Reflectance.750....,
+  Ref_760 = majdatin$Reflectance.760....,
+  Gs = majdatin$Gs_mol
+  #T_TEA = majdatin$T_TEA
+)
+
+majdat[,4:ncol(majdat)] <- sapply(majdat[,4:ncol(majdat)], as.numeric)
+
+majdat[majdat==-9999] <- NA # replace -9999 with NAs
+
+# convert SWC to fraction
+majdat$SWC_1 <- majdat$SWC_1/100
+majdat$SWC_2 <- majdat$SWC_2/100
+majdat$SWC_3 <- majdat$SWC_3/100
+majdat$SWC_4 <- majdat$SWC_4/100
+majdat$SWC_5 <- majdat$SWC_5/100
+
+write.csv(majdat, file = "data_formatted/ES-Lm1/ES-Lm1_dat.csv") # save data as csv file
 
 
 

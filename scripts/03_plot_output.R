@@ -15,6 +15,7 @@ if(!file.exists("plots")) { dir.create("plots")}
 
 path_out = "./plots/" # set save path
 
+# mod1
 sitename = c("lae", "crk", "geb", "lnf", "yat")
 varname = c("ET", "GPP", "SIF_O2A", "WUE_GPP", "WUE_SIF", "T_TEA", "WUE_GPP_TEA", "WUE_SIF_TEA")
 df_list <- list()
@@ -23,7 +24,7 @@ for(i in 1:length(sitename)){
   for(j in 1:length(varname)){
     
     #dffilename <- paste("./models/model1/", sitename[i],"/coda/df_mod1_", sitename[i], "_", varname[j], ".csv", sep = "")
-    dffilename <- paste("./output_model1/df/df_", sitename[i], "_", varname[j], ".csv", sep = "")
+    dffilename <- paste("./output_model1/df/df_", sitename[i], "_", varname[j],"_hour", ".csv", sep = "")
     df_temp <- tryCatch(read.csv(dffilename), error=function(err) NA)
     
     if(is.na(df_temp)){
@@ -39,6 +40,32 @@ for(i in 1:length(sitename)){
 }
 df = bind_rows(df_list2)
 
+# mod1 daily
+sitename = c("lae", "crk", "geb", "lnf", "yat")
+varname = c("ET", "GPP", "SIF_O2A", "WUE_GPP", "WUE_SIF", "T_TEA", "WUE_GPP_TEA", "WUE_SIF_TEA")
+df_list <- list()
+df_list2 <- list()
+for(i in 1:length(sitename)){
+  for(j in 1:length(varname)){
+    
+    #dffilename <- paste("./models/model1/", sitename[i],"/coda/df_mod1_", sitename[i], "_", varname[j], ".csv", sep = "")
+    dffilename <- paste("./output_model1/df/df_", sitename[i], "_", varname[j],"_daily", ".csv", sep = "")
+    df_temp <- tryCatch(read.csv(dffilename), error=function(err) NA)
+    
+    if(is.na(df_temp)){
+      next
+    }
+    
+    df_temp <- df_temp %>%
+      mutate(response = varname[j], site = sitename[i])
+    
+    df_list[[j]] = df_temp
+  }
+  df_list2[[i]] = bind_rows(df_list)
+}
+df_daily = bind_rows(df_list2)
+
+# mod2
 sitename = c("lae", "crk", "geb", "lnf", "yat")
 varname = c("WUE_GPP", "WUE_SIF")
 df_list <- list()
@@ -47,7 +74,7 @@ for(i in 1:length(sitename)){
   for(j in 1:length(varname)){
     
     #dffilename <- paste("./models/model1/", sitename[i],"/coda/df_mod1_", sitename[i], "_", varname[j], ".csv", sep = "")
-    dffilename <- paste("./output_model2/df/df_", sitename[i], "_", varname[j], ".csv", sep = "")
+    dffilename <- paste("./output_model2/df/df_", sitename[i], "_", varname[j],"_hour", ".csv", sep = "")
     df_temp <- tryCatch(read.csv(dffilename), error=function(err) NA)
     
     if(is.na(df_temp)){
@@ -66,7 +93,7 @@ df2 = bind_rows(df_list2)
 
 
 p <- df %>%
-  filter(var %in% c("wSs","wT","wV")) %>%
+  filter(var %in% c("wSs","wT","wV", "wPAR")) %>%
   ggplot(aes(x=ID1, y=mean)) + 
   geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5), position = position_dodge(width = 1), fatten = .5) +
   #geom_point(pch=21, size = .5) +
@@ -91,7 +118,7 @@ ggsave2("p_weights.png", plot = p, path = path_out, width = 9, height = 5)
 
 df_p <- df %>%
   filter(var == "beta1")
-df_p$ID <-factor(df_p$ID1 , levels = c("1","2","3","4"), labels = c("VPD", "Tair", "Sshall", "Sdeep"))
+df_p$ID <-factor(df_p$ID1 , levels = c("1","2","3","4", "5"), labels = c("VPD", "Tair", "Sshall", "Sdeep", "PAR"))
 p <- df_p %>%
   filter(ID %in% c("VPD", "Tair","PAR", "Sshall", "Sdeep")) %>%
   ggplot(aes(x=mean, y=ID)) + 
@@ -119,7 +146,7 @@ df_p <- df %>%
 # key: 1 VPD # 2 Tair # 3 PAR # 4 Sshall # 5 Sdeep
 # X1a = cbind(X1[,1]^2, X1[,2]^2)
 # X2 = X1[,1]*X1[,2], X1[,1]*X1[,4], X1[,1]*X1[,5], X1[,2]*X1[,4], X1[,2]*X1[,5], X1[,4]*X1[,5]
-df_p$ID <-factor(df_p$ID1 , levels = c("1","2","3","4","5", "6"), labels = c("VPD*Tair", "Tair*Sshall", "Tair*Sdeep", "VPD*Sshall", "VPD*Sdeep", "Sshall*Sdeep"))
+df_p$ID <-factor(df_p$ID1 , levels = c("1","2","3","4","5", "6", "7", "8", "9", "10"), labels = c("VPD*Tair", "Tair*Sshall", "Tair*Sdeep", "VPD*Sshall", "VPD*Sdeep", "Sshall*Sdeep", "PAR*VPD", "PAR*Tair", "PAR*Sshall", "PAR*Sdeep"))
 p <- df_p %>%
   ggplot(aes(x=mean, y=ID)) + 
   geom_pointrange(aes(xmax = pc97.5, xmin = pc2.5, alpha = ifelse(pc2.5 <= 0 & pc97.5 >= 0, .9, 1)), position = position_dodge(width = .7), fatten = .5) +
@@ -143,26 +170,10 @@ ggsave2("p_int_effects.png", plot = p, path = path_out, width = 8, height = 6)
 
 
 
-# paramnames <- c("VPD", "Tair", "Sshall", "Sdeep")
-# df_list <- list()
-# df_list2 <- list()
-# for(i in 1:length(varname)){
-#   df_param1 <- df_p %>%
-#     filter(var == varname[i])
-#   for(j in 1:length(paramnames)){
-#     df_param2 <- df_param1 %>%
-#       filter(ID2 == paramnames[j])
-# 
-#     df_param2$ID1 <- c(1:nrow(df_param2))
-#     df_list[[j]] <- df_param2
-#   }
-#   df_list2[[i]] <- bind_rows(df_list)
-# }
-# df_p <- bind_rows(df_list2)
-
 df_p <- df %>%
   filter(var == "dYdX")
-df_p$ID2 <-factor(df_p$ID2 , levels = c("1","2","3","4"), labels = c("VPD", "Tair", "Sshall", "Sdeep"))
+df_p$ID2 <-factor(df_p$ID2 , levels = c("1","2","3","4", "5"), labels = c("VPD", "Tair", "Sshall", "Sdeep", "PAR"))
+df_p$TIMESTAMP <- as.POSIXct(df_p$TIMESTAMP)
 
 for(i in 1:length(sitename)){
   p <- df_p %>%
@@ -184,38 +195,12 @@ for(i in 1:length(sitename)){
           text = element_text(size=10),
           legend.title = element_blank(),
           plot.title = element_text(hjust = 0.5))
-  #p
-  
+
   ggname <- paste("p_netsens_", i,".png", sep="")
   ggsave2(ggname, plot = p, path = path_out, width = 14, height = 8)
   
 }
 
-
-
-
-# p <- df_p %>%
-#   filter(site %in% c("crk", "geb")) %>%
-#   ggplot(aes(x=ID1, y=mean)) +
-#   geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5, color = ifelse(pc2.5 <= 0 & pc97.5 >= 0, "nonsignificant", "significant")), position = position_dodge(width = 1), fatten = .5) +
-#   scale_color_manual(values = c("gray", "black")) +
-#   geom_hline(yintercept = 0, linetype = 2) +
-#   #geom_rect(aes(xmin = date, xmax = dplyr::lead(date), ymin = -Inf, ymax = Inf, fill = Season), alpha = 0.1) +
-#   #scale_fill_brewer(palette = "Dark2") +
-#   #facet_grid(var~ID2, scales = "free") +
-#   facet_nested_wrap(ID2 ~ response + site, scales="free", nrow=4) +
-#   labs(title = NULL, y = "dY/dX", x = "Half-hour Timestep")+
-#   theme_bw() +
-#   theme(legend.position = "top",
-#         legend.text=element_text(size=10),
-#         axis.text.x = element_blank(),
-#         #axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
-#         text = element_text(size=10),
-#         legend.title = element_blank(),
-#         plot.title = element_text(hjust = 0.5))
-# p
-# 
-# ggsave2("p_netsens2.png", plot = p, path = path_out, width = 14, height = 8)
 
 
 # Bayesian R2
@@ -244,6 +229,9 @@ ggsave2("R2.png", plot = p, path = path_out, width = 8, height = 6)
 for(i in 1:length(sitename)){
   dfname <- paste("./data_clean/",sitename[i],"dat.RData", sep="")
   load(dfname) #dat
+  
+  dat$TIMESTAMP <- as.POSIXct(dat$TIMESTAMP)
+  
   p1 <- dat %>%
     ggplot(aes(x=TIMESTAMP)) +
     geom_line(aes(y = T_TEA), position = position_dodge(width = 1)) +
@@ -304,7 +292,7 @@ for(i in 1:length(sitename)){
           legend.title = element_blank(),
           plot.title = element_text(hjust = 0.5))
   p <- grid.arrange(p1,p1.5,p2,p3,p4,nrow=5)
-  
+
   savename <- paste(sitename[i],"view.png",sep="")
   ggsave2(savename, plot = p, path = path_out, width = 9, height = 5)
   
@@ -317,7 +305,7 @@ for(i in 1:length(sitename)){
 
 
 p <- df2 %>%
-  filter(var %in% c("wSs","wT","wV")) %>%
+  filter(var %in% c("wSs","wT","wV", "wPAR")) %>%
   ggplot(aes(x=ID1, y=mean)) + 
   geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5), position = position_dodge(width = 1), fatten = .5) +
   #geom_point(pch=21, size = .5) +
@@ -395,8 +383,9 @@ ggsave2("p_int_effects_mod2.png", plot = p, path = path_out, width = 8, height =
 
 df_p <- df2 %>%
   filter(var == "dYdX")
-df_p$ID2 <-factor(df_p$ID2 , levels = c("1","2","3","4"), labels = c("VPD", "Tair", "Sshall", "Sdeep"))
+df_p$ID2 <-factor(df_p$ID2 , levels = c("1","2","3","4", "5"), labels = c("VPD", "Tair", "Sshall", "Sdeep", "PAR"))
 
+sitename <- c("yat", "crk")
 for(i in 2:length(sitename)){
   p <- df_p %>%
     filter(site==sitename[i]) %>%
@@ -427,102 +416,102 @@ for(i in 2:length(sitename)){
 #################################################### Compare Ts
 ### Read in YINs for dates
 # For comparing T_TEA and T.pred
-sitename = c("lae", "geb", "yat")
-responsename = c("WUE_GPP", "WUE_SIF")
-df_list <- list()
-df_list2 <- list()
-for(i in c(1:length(sitename))){
-  
-  # load org data for each site
-  load(paste("./data_clean/",sitename[i],"dat.RData", sep="")) # dat
-  
-  # Load site metadata for variables needed for process-based evaporation model
-  df_soil <- read.csv("./data_misc/soildata.csv")
-  
-  df_siteinfo <- df_soil %>% # filter for the site we're running the model for
-    filter(sitecode == sitename[i])
-  
-  Z = df_siteinfo$ref_height_m # reference height (m)
-  h = 	df_siteinfo$elev_m # elevation
-  fc = df_siteinfo$FC # field capacity
-  fclay = df_siteinfo$clay/100 # clay fraction
-  fsand = df_siteinfo$sand/100 # sand fraction
-  dat$SWC_shall <- dat$SWC_shall/100 # convert to fraction
-  dat$SWC_deep <- dat$SWC_deep/100 # convert to fraction
-  
-  # Calculate intermediate parameters needed for evaporation model
-  # Need dataframe with columns for PA, TA, TS, WS, RH, SWC_shall
-  # Need separate data for Z, fsand, fclay, fc
-  dat <- get_evap(dat, Z = Z, h = h, fc = fc, fclay = fclay, fsand = fsand)
-  
-  for(j in c(1:length(responsename))){
-    df_p <- df2 %>% # df2 is for model 2
-      filter(var %in% c("T.pred")) %>%
-      filter(site == sitename[i]) %>%
-      filter(response == responsename[j])
-    
-    if(nrow(df_p)==0){next} # if we don't have the results, skip
-    
-    
-    # If we are missing env variables we don't want to gapfill 5 timesteps into the past,
-    # make ET NA to skip over those periods
-    # we will filter out the NAs in ET later in our YIN df to skip over those rows in our weight calculations
-    for(k in c(1:nrow(dat))){
-      if(k < 7){
-        next
-      }
-      for(m in c(1:6)){
-        if(is.na(dat$SWC_shall[k-m])){
-          dat[k,"ET"] = NA
-        }
-        if(is.na(dat$SWC_deep[k-m])){
-          dat[k,"ET"] = NA
-        }
-      }
-      
-    }
-    
-    # Get the YIN for the site-variable combo
-    YIN = dat %>%
-      rowid_to_column("ind") %>% # ind: index to link the growing season Y variables back to the appropriate row in the covariate data set
-      mutate(time = as.numeric(format(TIMESTAMP, "%H%M"))) %>%
-      filter(between(time, 730, 1600)) %>% # filter from 7:30 am to 4:00 pm everyday
-      filter(!is.na(SIF_O2A)) %>% # filter any gaps for SIF out that we don't want to fill
-      filter(!is.na(ET)) %>%
-      filter(!is.na(GPP)) %>%
-      filter(!is.na(TA)) %>% # filter any weird start/end gaps for envir variables, this won't cause gaps in the middle of the day, since we already gap-filled
-      filter(!is.na(VPD)) %>%
-      filter(!is.na(SWC_shall)) %>%
-      filter(!is.na(WS)) %>% # filter away any evap equation-dependent variables we are missing or do not want to gapfill
-      filter(!is.na(Ri)) %>%
-      filter(!is.na(ea)) %>%
-      filter(!is.na(es))
-    
-    TIMESTAMP = YIN$TIMESTAMP
-    df_TEA = data.frame(X = NA,
-                        var = "T.pred",
-                        ID1 = c(1:nrow(YIN)),
-                        ID2 = NA,
-                        mean = YIN$T_TEA,
-                        median = NA,
-                        pc2.5 = NA,
-                        pc97.5 = NA,
-                        overlap0 = NA,
-                        gel = NA,
-                        response = "T_TEA",
-                        site = sitename[i],
-                        TIMESTAMP = YIN$TIMESTAMP)
-    df_p <- cbind(df_p, TIMESTAMP)
-    df_p <- rbind(df_p, df_TEA)
-    
-    
-    
-    df_list[[j]] <- df_p
-  }
-  df_list2[[i]] <- bind_rows(df_list)
-  
-}
-df_p <- bind_rows(df_list2)
+# sitename = c("lae", "geb", "yat")
+# responsename = c("WUE_GPP", "WUE_SIF")
+# df_list <- list()
+# df_list2 <- list()
+# for(i in c(1:length(sitename))){
+#   
+#   # load org data for each site
+#   load(paste("./data_clean/",sitename[i],"dat.RData", sep="")) # dat
+#   
+#   # Load site metadata for variables needed for process-based evaporation model
+#   df_soil <- read.csv("./data_misc/soildata.csv")
+#   
+#   df_siteinfo <- df_soil %>% # filter for the site we're running the model for
+#     filter(sitecode == sitename[i])
+#   
+#   Z = df_siteinfo$ref_height_m # reference height (m)
+#   h = 	df_siteinfo$elev_m # elevation
+#   fc = df_siteinfo$FC # field capacity
+#   fclay = df_siteinfo$clay/100 # clay fraction
+#   fsand = df_siteinfo$sand/100 # sand fraction
+#   dat$SWC_shall <- dat$SWC_shall/100 # convert to fraction
+#   dat$SWC_deep <- dat$SWC_deep/100 # convert to fraction
+#   
+#   # Calculate intermediate parameters needed for evaporation model
+#   # Need dataframe with columns for PA, TA, TS, WS, RH, SWC_shall
+#   # Need separate data for Z, fsand, fclay, fc
+#   dat <- get_evap(dat, Z = Z, h = h, fc = fc, fclay = fclay, fsand = fsand)
+#   
+#   for(j in c(1:length(responsename))){
+#     df_p <- df2 %>% # df2 is for model 2
+#       filter(var %in% c("T.pred")) %>%
+#       filter(site == sitename[i]) %>%
+#       filter(response == responsename[j])
+#     
+#     if(nrow(df_p)==0){next} # if we don't have the results, skip
+#     
+#     
+#     # If we are missing env variables we don't want to gapfill 5 timesteps into the past,
+#     # make ET NA to skip over those periods
+#     # we will filter out the NAs in ET later in our YIN df to skip over those rows in our weight calculations
+#     for(k in c(1:nrow(dat))){
+#       if(k < 7){
+#         next
+#       }
+#       for(m in c(1:6)){
+#         if(is.na(dat$SWC_shall[k-m])){
+#           dat[k,"ET"] = NA
+#         }
+#         if(is.na(dat$SWC_deep[k-m])){
+#           dat[k,"ET"] = NA
+#         }
+#       }
+#       
+#     }
+#     
+#     # Get the YIN for the site-variable combo
+#     YIN = dat %>%
+#       rowid_to_column("ind") %>% # ind: index to link the growing season Y variables back to the appropriate row in the covariate data set
+#       mutate(time = as.numeric(format(TIMESTAMP, "%H%M"))) %>%
+#       filter(between(time, 730, 1600)) %>% # filter from 7:30 am to 4:00 pm everyday
+#       filter(!is.na(SIF_O2A)) %>% # filter any gaps for SIF out that we don't want to fill
+#       filter(!is.na(ET)) %>%
+#       filter(!is.na(GPP)) %>%
+#       filter(!is.na(TA)) %>% # filter any weird start/end gaps for envir variables, this won't cause gaps in the middle of the day, since we already gap-filled
+#       filter(!is.na(VPD)) %>%
+#       filter(!is.na(SWC_shall)) %>%
+#       filter(!is.na(WS)) %>% # filter away any evap equation-dependent variables we are missing or do not want to gapfill
+#       filter(!is.na(Ri)) %>%
+#       filter(!is.na(ea)) %>%
+#       filter(!is.na(es))
+#     
+#     TIMESTAMP = YIN$TIMESTAMP
+#     df_TEA = data.frame(X = NA,
+#                         var = "T.pred",
+#                         ID1 = c(1:nrow(YIN)),
+#                         ID2 = NA,
+#                         mean = YIN$T_TEA,
+#                         median = NA,
+#                         pc2.5 = NA,
+#                         pc97.5 = NA,
+#                         overlap0 = NA,
+#                         gel = NA,
+#                         response = "T_TEA",
+#                         site = sitename[i],
+#                         TIMESTAMP = YIN$TIMESTAMP)
+#     df_p <- cbind(df_p, TIMESTAMP)
+#     df_p <- rbind(df_p, df_TEA)
+#     
+#     
+#     
+#     df_list[[j]] <- df_p
+#   }
+#   df_list2[[i]] <- bind_rows(df_list)
+#   
+# }
+# df_p <- bind_rows(df_list2)
 
 for(i in 1:nrow(df_p)){
   if(df_p$response[i]=="WUE_GPP"){
@@ -615,162 +604,71 @@ summary(test)
 
 df_plot <- df %>%
   filter(var == "dYdX") %>%
-  filter(response %nin% c("WUE_GPP", "WUE_SIF", "T_TEA","WUE_GPP_TEA", "WUE_SIF_TEA", "ET"))%>%
+  filter(response %nin% c("WUE_GPP", "WUE_SIF","WUE_GPP_TEA", "WUE_SIF_TEA", "ET"))%>%
   mutate(mod = 1)
 df_plot2 <- df2 %>%
   filter(var == "dYdX") %>%
   mutate(mod = 2)
-df_plot <- rbind(df_plot, df_plot2)
-df_plot$ID2 <-factor(df_plot$ID2 , levels = c("1","2","3","4"), labels = c("VPD", "Tair", "Sshall", "Sdeep"))
-df_plot$response <-factor(df_plot$response , levels = c("WUE_GPP", "WUE_SIF","GPP","SIF_O2A"), labels = c("GPP/T (WUE)", "SIF/T (WUE)", "GPP", "SIF"))
-df_plot$cat <- ifelse(df_plot$ID2 %in% c("VPD", "Tair"), "moisture demand", "soil moisture supply")
 
-### Read in YINs for dates
-# For comparing T_TEA and T.pred
+df_p$TIMESTAMP <- as.character(df_p$TIMESTAMP) # timestamps should be in chatacter format for joining
+df_p <- left_join(df_p, df_wue, by = c("DOY", "site", "TIMESTAMP", "response"))
+df_p$mean <- df_p$mean * df_p$wue_mean
+df_p$pc2.5 <- df_p$pc2.5 * df_p$wue_pc2.5
+df_p$pc97.5 <- df_p$pc97.5 * df_p$wue_pc97.5
+df_plot <- rbind(df_plot, df_plot2)
+df_plot$ID2 <-factor(df_plot$ID2 , levels = c("1","2","3","4", "5"), labels = c("VPD", "Tair", "Sshall", "Sdeep", "PAR"))
+df_plot$response <-factor(df_plot$response , levels = c("WUE_GPP", "WUE_SIF","GPP","SIF_O2A", "T_TEA"), labels = c("GPP/T (WUE)", "SIF/T (WUE)", "GPP", "SIF", "T_TEA"))
+df_plot$cat <- ifelse(df_plot$ID2 %in% c("VPD", "Tair", "PAR"), "atmospheric driver", "soil moisture driver")
+df_p <- df_plot
+
+
 sitename = c("lae", "crk", "geb", "lnf", "yat")
-varname = c("dYdX")
-responsename = c("GPP/T (WUE)", "SIF/T (WUE)", "GPP", "SIF")
-tempname <- c("WUE_GPP", "WUE_SIF","GPP","SIF_O2A")
-ID2name = c("VPD", "Tair", "Sshall", "Sdeep")
 df_list <- list()
-df_list1 <- list()
-df_list2 <- list()
 for(i in c(1:length(sitename))){
   print(paste("i: ", i, sep=""))
   # load org data for each site
   load(paste("./data_clean/",sitename[i],"dat.RData", sep="")) # dat
   
-  # Load site metadata for variables needed for process-based evaporation model
-  df_soil <- read.csv("./data_misc/soildata.csv")
+  # aggregate by hour
+  dat <- dat %>%
+    select(-X) %>%
+    mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+    group_by(DOY,hour) %>%
+    summarise(across(everything(), mean, na.rm = T)) %>%
+    ungroup()
   
-  df_siteinfo <- df_soil %>% # filter for the site we're running the model for
-    filter(sitecode == sitename[i])
+  dat$site <- sitename[i]
   
-  Z = df_siteinfo$ref_height_m # reference height (m)
-  h = 	df_siteinfo$elev_m # elevation
-  fc = df_siteinfo$FC # field capacity
-  fclay = df_siteinfo$clay/100 # clay fraction
-  fsand = df_siteinfo$sand/100 # sand fraction
-  dat$SWC_shall <- dat$SWC_shall/100 # convert to fraction
-  dat$SWC_deep <- dat$SWC_deep/100 # convert to fraction
-  
-  # Calculate intermediate parameters needed for evaporation model
-  # Need dataframe with columns for PA, TA, TS, WS, RH, SWC_shall
-  # Need separate data for Z, fsand, fclay, fc
-  dat <- get_evap(dat, Z = Z, h = h, fc = fc, fclay = fclay, fsand = fsand)
-  
-  for(j in c(1:length(responsename))){
-    print(paste("j: ", j, sep=""))
-    for(p in c(1:length(ID2name))){
-      print(paste("p: ", p, sep=""))
-    df_p <- df_plot %>% # df2 is for model 2
-      filter(var %in% c("dYdX")) %>%
-      filter(site == sitename[i]) %>%
-      filter(response %in% responsename[j]) %>%
-      filter(ID2 %in% ID2name[p])
-    
-    if(nrow(df_p)==0){next} # if we don't have the results, skip
-    
-    if(df_p$mod[1]==2){
-      # If we are missing env variables we don't want to gapfill 5 timesteps into the past,
-      # make ET NA to skip over those periods
-      # we will filter out the NAs in ET later in our YIN df to skip over those rows in our weight calculations
-      for(k in c(1:nrow(dat))){
-        if(k < 7){
-          next
-        }
-        for(m in c(1:6)){
-          if(is.na(dat$SWC_shall[k-m])){
-            dat[k,"ET"] = NA
-          }
-          if(is.na(dat$SWC_deep[k-m])){
-            dat[k,"ET"] = NA
-          }
-        }
-        
-      }
-      
-      # Get the YIN for the site-variable combo
-      YIN = dat %>%
-        rowid_to_column("ind") %>% # ind: index to link the growing season Y variables back to the appropriate row in the covariate data set
-        mutate(time = as.numeric(format(TIMESTAMP, "%H%M"))) %>%
-        filter(between(time, 730, 1600)) %>% # filter from 7:30 am to 4:00 pm everyday
-        filter(!is.na(SIF_O2A)) %>% # filter any gaps for SIF out that we don't want to fill
-        filter(!is.na(ET)) %>%
-        filter(!is.na(GPP)) %>%
-        filter(!is.na(TA)) %>% # filter any weird start/end gaps for envir variables, this won't cause gaps in the middle of the day, since we already gap-filled
-        filter(!is.na(VPD)) %>%
-        filter(!is.na(SWC_shall)) %>%
-        filter(!is.na(WS)) %>% # filter away any evap equation-dependent variables we are missing or do not want to gapfill
-        filter(!is.na(Ri)) %>%
-        filter(!is.na(ea)) %>%
-        filter(!is.na(es))
-    }else{ # end mod 2 # mod is 1
-      # If we are missing env variables we don't want to gapfill 5 timesteps into the past,
-      # make our response varibale NA to skip over those periods
-      for(n in c(1:nrow(dat))){
-        if(n < 7){
-          next
-        }
-        for(q in c(1:6)){
-          if(is.na(dat$SWC_shall[n-q])){
-            dat[n,tempname[j]] = NA
-          }
-          if(is.na(dat$SWC_deep[n-q])){
-            dat[n,tempname[j]] = NA
-          }
-        }
-      }
-        
-        # If WUE is Inf, have the model ignore it, since 0 T doesn't really make since in this context
-        dat[,tempname[j]] <- ifelse(is.infinite(dat[,tempname[j]]), NA, dat[,tempname[j]])
-        
-        # Make the response variable file of interest. This file includes 
-        # growing-season response (Y) variables of interest along with indices 
-        # that link the Y variables back to covariates of interest.
-        # NOTE: Kym did this to only test growing season response variables (4/1 to 10/31 for each year)
-        
-        YIN = dat %>%
-          rowid_to_column("ind") %>% # ind: index to link the growing season Y variables back to the appropriate row in the covariate data set
-          mutate(time = as.numeric(format(TIMESTAMP, "%H%M"))) %>%
-          filter(between(time, 730, 1600)) %>% # filter from 7:30 am to 4:00 pm everyday
-          filter(!is.na(TA)) %>% # filter any weird start/end gaps for envir variables, this won't cause gaps in the middle of the day, since we already gap-filled
-          filter(!is.na(VPD)) %>%
-          filter(!is.na(SWC_shall)) %>%
-          filter(!is.na(SWC_deep)) %>%
-          drop_na(all_of(tempname[j]))
-        
-        Nstart = 1
-        Nstart = ifelse(YIN$ind[1]<6, 2, Nstart)
-        Nstart = ifelse(YIN$ind[2]<6, 3, Nstart)
-        if(Nstart>1){
-          YIN <- YIN[Nstart:nrow(YIN),] # trim YIN to reflect new Nstart
-          Nstart = 1 # make Nstart 1 again
-        }else{
-          Nstart=1
-        }
-        
-      
-    } # end mod 1
-    
-    Tair = YIN$TA
-    PAR = YIN$SW_IN
-    TIMESTAMP = YIN$TIMESTAMP
-    df_p <- cbind(df_p, TIMESTAMP, Tair, PAR)
-    
-    df_list[[p]] <- df_p
-  }
-    df_list1[[j]] <- bind_rows(df_list)
-  }
-  df_list2[[i]] <- bind_rows(df_list1)
-  
+  df_list[[i]] <- dat
 }
-df_p <- bind_rows(df_list2)
+df_clean <- bind_rows(df_list)
+
+# combine clean and output, but make sure TIMESTAMPS are in correct format
+df_clean$TIMESTAMP <- as.character(df_clean$TIMESTAMP)
+df_p$TIMESTAMP <- as.character(df_p$TIMESTAMP) # timestamps should be in chatacter format for joining
+df_p <- left_join(df_p, df_clean, by = c("DOY", "site", "TIMESTAMP"))
+df_p$TIMESTAMP <- as.POSIXct(df_p$TIMESTAMP)
 
 dtime <- read.table(text=format(df_p$TIMESTAMP, "%H:%M:%S"), sep=":", header=FALSE)
 dtime$V2 <- ifelse(dtime$V2==30, .5, 0)# convert minutes to hours
 dtime$time <- dtime$V1 + dtime$V2
 df_p$time <- dtime$time
+
+# temp
+df_wue <- df2 %>%
+  filter(var == "WUE.pred") %>%
+  select(mean, pc2.5, pc97.5, DOY, TIMESTAMP, response, site)
+df_wue$response <-factor(df_wue$response , levels = c("WUE_GPP", "WUE_SIF"), labels = c("GPP/T (WUE)", "SIF/T (WUE)"))
+df_wue <-  df_wue %>%
+  rename(wue_mean = mean, wue_pc2.5 = pc2.5, wue_pc97.5 = pc97.5)
+
+df_p$TIMESTAMP <- as.character(df_p$TIMESTAMP) # timestamps should be in chatacter format for joining
+df_p <- left_join(df_p, df_wue, by = c("DOY", "site", "TIMESTAMP", "response"))
+df_p$mean <- ifelse(df_p$response %in% c("GPP/T (WUE)", "SIF/T (WUE)"), df_p$mean * df_p$wue_mean, df_p$mean)
+df_p$pc2.5 <- ifelse(df_p$response %in% c("GPP/T (WUE)", "SIF/T (WUE)"), df_p$pc2.5 * df_p$wue_pc2.5, df_p$pc2.5)
+df_p$pc97.5 <- ifelse(df_p$response %in% c("GPP/T (WUE)", "SIF/T (WUE)"), df_p$pc97.5 * df_p$wue_pc97.5, df_p$pc97.5)
+df_p$TIMESTAMP <- as.POSIXct(df_p$TIMESTAMP)
+
 
 p <- df_p %>%
   filter(site=="crk") %>%
@@ -797,14 +695,25 @@ p <- df_p %>%
         strip.background = element_rect(color = "black", fill = "white", size = 1))
 p
 
-ggsave2("p_poster_net_crk.eps", plot = p, path = path_out, width = 6, height = 8)
+ggsave2("p_poster_net_crk.png", plot = p, path = path_out, width = 8, height = 6)
 
 # Take average of net sensitivities by time
 df_p_grouped <- df_p %>%
   group_by(site,cat,response,time,ID2) %>%
-  summarise_at(vars(mean, pc2.5, pc97.5), list(avg = mean))
+  summarise_at(vars(mean, median, pc2.5, pc97.5), list(avg = mean))
 
-p <- df_p_grouped %>%
+test <- df_p %>%
+  filter(site == "yat") %>%
+  filter(response %in% c("SIF/T (WUE)")) %>%
+  select(wue_mean)
+
+test2 <- df_clean %>%
+  filter(site == "yat") %>%
+  select(GPP, T_TEA) %>%
+  mutate(wue_TEA = GPP/T_TEA)
+
+
+p <- df_p_grouped %>% #CRK
   filter(site=="crk")%>%
   filter(response %in% c("GPP/T (WUE)", "SIF/T (WUE)")) %>%
   ggplot(aes(x=time, y=mean_avg)) +
@@ -830,26 +739,112 @@ p <- df_p_grouped %>%
         panel.border = element_rect(color = "black", fill = NA, size = 1), 
         strip.background = element_rect(color = "black", fill = "white", size = 1))
 p
+ggsave2("p_poster_net_crk3.png", plot = p, path = path_out, width = 9, height = 5.5)
 
-ggsave2("p_poster_net_crk3.eps", plot = p, path = path_out, width = 9, height = 5.5)
+
+p <- df_p_grouped %>% #YAT
+  filter(site=="yat")%>%
+  filter(response %in% c("GPP/T (WUE)", "SIF/T (WUE)")) %>%
+  ggplot(aes(x=time, y=median_avg, color= time)) +
+  geom_point() +
+  #geom_pointrange(aes(ymax = pc97.5_avg, ymin = pc2.5_avg), color= "black", fatten = .7) +
+  #geom_pointrange(aes(ymax = pc97.5_avg, ymin = pc2.5_avg, color= time), fatten = .2) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  #scale_color_viridis_c(option = "D") +
+  scale_color_distiller(palette = "YlOrBr") +
+  #geom_rect(aes(xmin = date, xmax = dplyr::lead(date), ymin = -Inf, ymax = Inf, fill = Season), alpha = 0.1) +
+  #scale_fill_brewer(palette = "Dark2") +
+  #facet_grid(response~ID2, scales = "free") +
+  facet_nested(response ~ cat + ID2, scales = "free") +
+  labs(title = NULL, y = "Average Diurnal dY/dX", x = "Hour of Day")+
+  theme_bw() +
+  theme(legend.position = "none",
+        legend.text=element_text(size=24),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+        text = element_text(size=24),
+        legend.title = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.spacing=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", fill = "white", size = 1))
+p
+ggsave2("p_poster_net_yat3.png", plot = p, path = path_out, width = 9, height = 5.5)
+
+
+p <- df_p_grouped %>% # temp
+  filter(site=="crk")%>%
+  filter(response %in% c("GPP", "SIF")) %>%
+  ggplot(aes(x=time, y=mean_avg)) +
+  geom_pointrange(aes(ymax = pc97.5_avg, ymin = pc2.5_avg), color= "black", fatten = .7) +
+  geom_pointrange(aes(ymax = pc97.5_avg, ymin = pc2.5_avg, color= time), fatten = .2) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  scale_color_viridis_c(option = "D") +
+  #geom_rect(aes(xmin = date, xmax = dplyr::lead(date), ymin = -Inf, ymax = Inf, fill = Season), alpha = 0.1) +
+  #scale_fill_brewer(palette = "Dark2") +
+  #facet_grid(response~ID2, scales = "free") +
+  facet_nested(response ~ cat + ID2, scales = "free") +
+  #xlim(c(as.POSIXct("2016-05-28 07:30:00", format="%Y-%m-%d %H:%M:%S"),as.POSIXct("2016-06-06 16:00:00", format="%Y-%m-%d %H:%M:%S"))) +
+  labs(title = NULL, y = "Average Diurnal dY/dX", x = "Hour of Day")+
+  theme_bw() +
+  theme(legend.position = "none",
+        legend.text=element_text(size=24),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+        text = element_text(size=24),
+        legend.title = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.spacing=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", fill = "white", size = 1))
+p
+
+ggsave2("p_poster_net_crk_phot.png", plot = p, path = path_out, width = 9, height = 5.5)
+
+p <- df_p_grouped %>% # temp
+  filter(site=="yat")%>%
+  filter(response %in% c("GPP", "SIF")) %>%
+  ggplot(aes(x=time, y=mean_avg, color = time)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = 2) +
+  #scale_color_viridis_c(option = "D") +
+  scale_color_distiller(palette = "YlOrBr") +
+  #geom_rect(aes(xmin = date, xmax = dplyr::lead(date), ymin = -Inf, ymax = Inf, fill = Season), alpha = 0.1) +
+  #scale_fill_brewer(palette = "Dark2") +
+  #facet_grid(response~ID2, scales = "free") +
+  facet_nested(response ~ cat + ID2, scales = "free") +
+  #xlim(c(as.POSIXct("2016-05-28 07:30:00", format="%Y-%m-%d %H:%M:%S"),as.POSIXct("2016-06-06 16:00:00", format="%Y-%m-%d %H:%M:%S"))) +
+  labs(title = NULL, y = "Average Diurnal dY/dX", x = "Hour of Day")+
+  theme_bw() +
+  theme(legend.position = "none",
+        legend.text=element_text(size=24),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+        text = element_text(size=24),
+        legend.title = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.spacing=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", fill = "white", size = 1))
+p
+
+ggsave2("p_poster_net_yat_phot.png", plot = p, path = path_out, width = 9, height = 5.5)
 
 p <- df_p %>%
   filter(site=="yat") %>%
   filter(response %in% c("GPP", "SIF")) %>%
-  filter(ID2 %in% c("Tair")) %>%
+  #filter(ID2 %in% c("Tair")) %>%
   ggplot(aes(x=TIMESTAMP, y=mean)) +
   geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5, color = ifelse(pc2.5 <= 0 & pc97.5 >= 0, "nonsignificant", "significant")), position = position_dodge(width = 1), fatten = .5) +
   scale_color_manual(values = c("gray", "black")) +
   geom_hline(yintercept = 0, linetype = 2) +
   #geom_rect(aes(xmin = date, xmax = dplyr::lead(date), ymin = -Inf, ymax = Inf, fill = Season), alpha = 0.1) +
-  #scale_fill_brewer(palette = "Dark2") +
-  #facet_grid(response~ID2, scales = "free") +
   facet_grid(response ~ ID2, scales="free") +
   #xlim(c(as.POSIXct("2016-05-28 07:30:00", format="%Y-%m-%d %H:%M:%S"),as.POSIXct("2016-06-06 16:00:00", format="%Y-%m-%d %H:%M:%S"))) +
-  labs(title = "IL-Yat Mediterranean Evergreen \n Coniferous Forest", y = "dY/dX", x = "Half-hour Timestep in 2017")+
+  labs(title = "IL-Yat Mediterranean Evergreen Coniferous Forest", y = "dY/dX", x = "Half-hour Timestep in 2017")+
   theme_bw() +
   theme(legend.position = "top",
-        legend.text=element_text(size=14),
+        legend.text=element_text(size=12),
         #axis.text.x = element_blank(),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
         text = element_text(size=14),
@@ -860,7 +855,63 @@ p <- df_p %>%
         strip.background = element_rect(color = "black", fill = "white", size = 1))
 p
 
-ggsave2("p_poster_net_yat.eps", plot = p, path = path_out, width = 5, height = 4)
+ggsave2("p_poster_net_yat.png", plot = p, path = path_out, width = 7, height = 4)
+
+
+p <- df_p %>%
+  filter(site=="lae") %>%
+  filter(response %in% c("GPP", "SIF")) %>%
+  #filter(ID2 %in% c("Tair")) %>%
+  ggplot(aes(x=TIMESTAMP, y=mean)) +
+  geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5, color = ifelse(pc2.5 <= 0 & pc97.5 >= 0, "nonsignificant", "significant")), position = position_dodge(width = 1), fatten = .5) +
+  scale_color_manual(values = c("gray", "black")) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  #geom_rect(aes(xmin = date, xmax = dplyr::lead(date), ymin = -Inf, ymax = Inf, fill = Season), alpha = 0.1) +
+  facet_grid(response ~ ID2, scales="free") +
+  #xlim(c(as.POSIXct("2018-07-01 07:15:00", format="%Y-%m-%d %H:%M:%S"),as.POSIXct("2018-08-30 16:00:00", format="%Y-%m-%d %H:%M:%S"))) +
+  labs(title = "CH-Lae Mixed Deciduous Mountain Forest", y = "dY/dX", x = "Half-hour Timestep in 2018")+
+  theme_bw() +
+  theme(legend.position = "top",
+        legend.text=element_text(size=12),
+        #axis.text.x = element_blank(),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+        text = element_text(size=14),
+        legend.title = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.spacing=unit(.06, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", fill = "white", size = 1))
+p
+
+ggsave2("p_poster_net_lae.png", plot = p, path = path_out, width = 7, height = 4)
+
+
+p <- df_p %>%
+  filter(site=="geb") %>%
+  filter(response %in% c("GPP", "SIF")) %>%
+  #filter(ID2 %in% c("Tair")) %>%
+  ggplot(aes(x=TIMESTAMP, y=mean)) +
+  geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5, color = ifelse(pc2.5 <= 0 & pc97.5 >= 0, "nonsignificant", "significant")), position = position_dodge(width = 1), fatten = .5) +
+  scale_color_manual(values = c("gray", "black")) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  #geom_rect(aes(xmin = date, xmax = dplyr::lead(date), ymin = -Inf, ymax = Inf, fill = Season), alpha = 0.1) +
+  facet_grid(response ~ ID2, scales="free") +
+  #xlim(c(as.POSIXct("2016-05-28 07:30:00", format="%Y-%m-%d %H:%M:%S"),as.POSIXct("2016-06-06 16:00:00", format="%Y-%m-%d %H:%M:%S"))) +
+  labs(title = "DE-Geb", y = "dY/dX", x = "Half-hour Timestep in 2017")+
+  theme_bw() +
+  theme(legend.position = "top",
+        legend.text=element_text(size=12),
+        #axis.text.x = element_blank(),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+        text = element_text(size=14),
+        legend.title = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.spacing=unit(.06, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", fill = "white", size = 1))
+p
+
+ggsave2("p_poster_net_geb.png", plot = p, path = path_out, width = 7, height = 4)
 
 
 p <- df %>%
@@ -901,11 +952,11 @@ df_p2 <- df_p %>%
 library(ggnewscale)
 p <- ggplot() +
   #geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5, color = site), fatten=.2,alpha=.3) +
-  geom_pointrange(data = df_p1, aes(x=Tair, y=mean, ymax = pc97.5, ymin = pc2.5, color = time), fatten=.2,alpha=.3) +
+  geom_pointrange(data = df_p1, aes(x=TA, y=mean, ymax = pc97.5, ymin = pc2.5, color = time), fatten=.2,alpha=.3) +
   scale_color_viridis_c(option = "D") +
   #scale_color_distiller(palette = "RdPu") +
   new_scale_color() +
-  geom_pointrange(data = df_p2, aes(x=Tair, y=mean, ymax = pc97.5, ymin = pc2.5, color = time), shape = 2, fatten=.2,alpha=.3) +
+  geom_pointrange(data = df_p2, aes(x=TA, y=mean, ymax = pc97.5, ymin = pc2.5, color = time), shape = 2, fatten=.2,alpha=.3) +
   scale_color_distiller(palette = "YlOrBr") +
   geom_hline(yintercept = 0, linetype = 2) +
   #facet_grid(response~ID2, scales = "free") +
@@ -915,7 +966,7 @@ p <- ggplot() +
   theme_bw() +
   theme(legend.position = "top",
         legend.text=element_text(size=14),
-        legend.title = element_blank(),
+        #legend.title = "time",
         #axis.text.x = element_blank(),
         #axis.text.x = element_text(angle , vjust = 1, hjust=1),
         text = element_text(size=14),
@@ -929,7 +980,7 @@ ggsave2("p_poster_net_tair.png", plot = p, path = path_out, width = 8, height = 
 df_p3 <- df_p %>%
   filter(response %in% c("GPP", "SIF"))%>%
   filter(ID2=="Tair")
-p <- ggplot(data = df_p3, aes(x=Tair, y=mean)) +
+p <- ggplot(data = df_p3, aes(x=TA, y=mean)) +
   #geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5, color = site), fatten=.2,alpha=.3) +
   geom_pointrange(data = df_p3 %>% filter(site=="crk"), aes(ymax = pc97.5, ymin = pc2.5, color = time, shape = site), fatten=.2,alpha=.3) +
   scale_color_viridis_c(option = "D") +
@@ -946,7 +997,7 @@ p <- ggplot(data = df_p3, aes(x=Tair, y=mean)) +
   theme_bw() +
   theme(legend.position = "top",
         legend.text=element_text(size=18),
-        legend.title = element_blank(),
+        #legend.title = element_blank(),
         #axis.text.x = element_blank(),
         #axis.text.x = element_text(angle , vjust = 1, hjust=1),
         text = element_text(size=24),
@@ -957,6 +1008,37 @@ p
 ggsave2("p_poster_net_tair2.png", plot = p, path = path_out, width = 8, height = 5)
 
 
+df_p3 <- df_p %>%
+  filter(response %in% c("GPP", "SIF", "T_TEA"))%>%
+  filter(ID2=="Tair")
+p <- ggplot(data = df_p3, aes(x=TA, y=mean)) +
+  #geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5, color = site), fatten=.2,alpha=.3) +
+  geom_pointrange(data = df_p3 %>% filter(site=="lae"), aes(ymax = pc97.5, ymin = pc2.5, color = time, shape = site), fatten=.2,alpha=.3) +
+  scale_color_viridis_c(option = "D") +
+  #scale_color_distiller(palette = "RdPu") +
+  new_scale_color() +
+  geom_pointrange(data = df_p3 %>% filter(site=="yat"), aes(ymax = pc97.5, ymin = pc2.5, color = time, shape = site), fatten=.2,alpha=.3) +
+  scale_color_distiller(palette = "YlOrBr") +
+  scale_shape_manual(values = c(1,2)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  #facet_grid(response~ID2, scales = "free") +
+  facet_wrap("response", scales = "free_y") +
+  #facet_wrap(site~response, scales = "free_y") +
+  labs(title = NULL, y = "dY/dTA", x = "Air Temperature (°C)")+
+  theme_bw() +
+  theme(legend.position = "top",
+        legend.text=element_text(size=18),
+        #legend.title = element_blank(),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle , vjust = 1, hjust=1),
+        text = element_text(size=24),
+        plot.title = element_text(hjust = 0.5),
+        strip.background = element_rect(color = "black", fill = "white", size = 1))
+p
+
+ggsave2("p_poster_net_tair3.png", plot = p, path = path_out, width = 8, height = 5)
+
+
 
 df_p3 <- df_p %>%
   filter(site %in% c("crk", "yat")) %>%
@@ -964,22 +1046,22 @@ df_p3 <- df_p %>%
   filter(ID2=="Tair")
 p <- ggplot(data = df_p3, aes(x=PAR, y=mean)) +
   #geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5, color = site), fatten=.2,alpha=.3) +
-  geom_pointrange(data = df_p3 %>% filter(site=="crk"), aes(ymax = pc97.5, ymin = pc2.5, color = Tair, shape = site), fatten=.2,alpha=.3) +
+  geom_pointrange(data = df_p3 %>% filter(site=="crk"), aes(ymax = pc97.5, ymin = pc2.5, color = TA, shape = site), fatten=.2,alpha=.3) +
   scale_color_viridis_c(option = "D") +
   #scale_color_distiller(palette = "RdPu") +
   new_scale_color() +
-  geom_pointrange(data = df_p3 %>% filter(site=="yat"), aes(ymax = pc97.5, ymin = pc2.5, color = Tair, shape = site), fatten=.2,alpha=.3) +
+  geom_pointrange(data = df_p3 %>% filter(site=="yat"), aes(ymax = pc97.5, ymin = pc2.5, color = TA, shape = site), fatten=.2,alpha=.3) +
   scale_color_distiller(palette = "YlOrBr") +
   scale_shape_manual(values = c(1,2)) +
   geom_hline(yintercept = 0, linetype = 2) +
   #facet_grid(response~ID2, scales = "free") +
   facet_grid2(site ~ response, scales = "free", independent = "all") +
   #facet_wrap(site~response, scales = "free_y") +
-  labs(title = NULL, y = "dY/dX", x = "PAR")+
+  labs(title = NULL, y = "dY/dTA", x = "PAR")+
   theme_bw() +
   theme(legend.position = "right",
         legend.text=element_text(size=18),
-        legend.title = element_blank(),
+        #legend.title = element_blank(),
         #axis.text.x = element_blank(),
         #axis.text.x = element_text(angle , vjust = 1, hjust=1),
         text = element_text(size=24),
@@ -988,5 +1070,74 @@ p <- ggplot(data = df_p3, aes(x=PAR, y=mean)) +
 p
 
 ggsave2("p_poster_net_tair_par2.png", plot = p, path = path_out, width = 10, height = 4)
+
+
+df_p3 <- df_p %>%
+  filter(site %in% c("crk", "yat")) %>%
+  filter(response %in% c("GPP", "SIF"))%>%
+  filter(ID2=="VPD")
+p <- ggplot(data = df_p3, aes(x=SWC_shall, y=mean)) +
+  #geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5, color = site), fatten=.2,alpha=.3) +
+  geom_pointrange(data = df_p3 %>% filter(site=="crk"), aes(ymax = pc97.5, ymin = pc2.5, color = time, shape = site), fatten=.2,alpha=.3) +
+  scale_color_viridis_c(option = "D") +
+  #scale_color_distiller(palette = "RdPu") +
+  new_scale_color() +
+  geom_pointrange(data = df_p3 %>% filter(site=="yat"), aes(ymax = pc97.5, ymin = pc2.5, color = time, shape = site), fatten=.2,alpha=.3) +
+  scale_color_distiller(palette = "YlOrBr") +
+  scale_shape_manual(values = c(1,2)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  #facet_grid(response~ID2, scales = "free") +
+  facet_grid2(site ~ response, scales = "free", independent = "all") +
+  #facet_wrap(site~response, scales = "free_y") +
+  labs(title = NULL, y = "dY/dVPD", x = "shallow SWC")+
+  theme_bw() +
+  theme(legend.position = "right",
+        legend.text=element_text(size=18),
+        #legend.title = element_blank(),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle , vjust = 1, hjust=1),
+        text = element_text(size=24),
+        plot.title = element_text(hjust = 0.5),
+        strip.background = element_rect(color = "black", fill = "white", size = 1))
+p
+
+ggsave2("p_poster_net_vpd.png", plot = p, path = path_out, width = 10, height = 4)
+
+
+# Take average of net sensitivities by temp
+df_p_grouped <- df_p %>%
+  group_by(site,cat,response,time,ID2) %>%
+  summarise_at(vars(mean, median, pc2.5, pc97.5), list(avg = mean))
+
+df_p3 <- df_p_grouped %>%
+  filter(response %in% c("GPP", "SIF", "T_TEA"))#%>%
+  #filter(ID2=="VPD")
+p <- ggplot(data = df_p3, aes(x=time, y=mean_avg)) +
+  #geom_pointrange(aes(ymax = pc97.5, ymin = pc2.5, color = site), fatten=.2,alpha=.3) +
+  geom_pointrange(data = df_p3, aes(ymax = pc97.5_avg, ymin = pc2.5_avg, color = site), fatten=.2) +
+  #scale_color_viridis_c(option = "D") +
+  scale_color_viridis_d(option = "D") +
+  #scale_shape_manual(values = c(1,2)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  facet_nested(response ~ site + ID2, scales = "free") +
+  #facet_grid2(site ~ response, scales = "free", independent = "all") +
+  labs(title = NULL, y = "dY/dX", x = "hour of day")+
+  theme_bw() +
+  theme(legend.position = "right",
+        legend.text=element_text(size=18),
+        #legend.title = element_blank(),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle , vjust = 1, hjust=1),
+        text = element_text(size=24),
+        plot.title = element_text(hjust = 0.5),
+        strip.background = element_rect(color = "black", fill = "white", size = 1))
+p
+
+
+ggsave2("p_poster_net_vs_time.png", plot = p, path = path_out, width = 15, height = 6)
+
+
+
+### yatir heatwave
 
 

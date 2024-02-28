@@ -7,6 +7,7 @@
 varname=$1
 sitename=$2
 seed=$3
+scale=$4
 
 echo 
 echo "run('$1');"
@@ -14,6 +15,6 @@ date
 
 # Run script
 #R --no-save < $1
-Rscript ./scripts/02b_run_model2.R $varname $sitename $seed
+Rscript ./scripts/02b_run_model2.R $varname $sitename $seed $scale
 echo "run('$1'); done"
 date

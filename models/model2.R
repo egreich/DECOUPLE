@@ -9,13 +9,17 @@ model{
     ET.rep[i] ~ dnorm(ET.pred[i], tau.Y)
     ET.pred[i] <- E.model[i] + T.pred[i] # for evaluating model fit, not connected to ET data
     
+    # intermediate calculation trick temp - this might just be needed for lae
+    #ET.pred2[i] <- ifelse(ET.pred[i]>ET.max, ET.max, ET.pred[i])
+    
     # T/ET ratio
     ET.int[i] <- ifelse(ET.pred[i]==0, 0.0000000000000001, ET.pred[i]) # intermediate calculation trick to ensure the denominator is not 0
     T.ratio[i] <- ifelse(ET.pred[i]==0, 0, T.pred[i]/ET.int[i])
     
     # Predicted transpiration
     # This is WUE = Photosynthesis/Transpiration rewritten to solve for T
-    T.pred[i] <- (1/WUE.pred[i])*Phot[i] # Phot (photosynthesis) is the numerator, either GPP or SIF
+    WUE.pred.int[i] <- ifelse(WUE.pred[i]==0, 0.0000000000000001, WUE.pred[i]) # intermediate calculation trick to ensure the denominator is not 0
+    T.pred[i] <- (1/WUE.pred.int[i])*Phot[i] # Phot (photosynthesis) is the numerator, either GPP or SIF
 
     # Compute squared difference for calculating posterior predictive loss
     sqdiff[i] <- pow(ET.rep[i]-ET[i],2)
@@ -44,10 +48,10 @@ model{
     
     # Soil evaporation from E1 (CLM 4.5)
     LE4.5[i] <- ifelse(Tsoil[i] >= 0, bowen[i]*((rho[i]*Cp)/gamma[i])*((alpha[i]*(e.sat[i] - e.a[i]))/rah[i]), 0)
-    Esoil4.5[i] <- conv.fact*LE4.5[i]
+    Esoil4.5[i] <- conv.fact[i]*conv.fact.time*LE4.5[i]
     # Soil evaporation from E2 (CLM 3.5)
     LE3.5[i] <- ifelse(Tsoil[i] >= 0, ((rho[i]*Cp)/gamma[i])*((alpha[i]*(e.sat[i] - e.a[i]))/(rah[i] + rss[i])), 0)
-    Esoil3.5[i] <- conv.fact*LE3.5[i]
+    Esoil3.5[i] <- conv.fact[i]*conv.fact.time*LE3.5[i]
     
     # Intercepted E
     Eint[i] <- (P[i])*(1 - exp(-k.pred*(LAI[i])))
@@ -60,8 +64,8 @@ model{
     #################### start SAM model ###################################################
     
     # Regression (mean) model
-    WUE.pred[i] <- log.WUE[i] #exp(log.WUE[i])
-    #WUE.pred[i] <- exp(log.WUE) # force mean to be positive, transform from log scale
+    #WUE.pred[i] <- log.WUE[i]
+    WUE.pred[i] <- exp(log.WUE[i]) # force mean to be positive, transform from log scale
     log.WUE[i] <- beta0 + main.effects[i] + squared.terms[i] + interactions[i] 
     
     # Define parts involving main effects, quadratic effects, and 2-way interactions
@@ -95,6 +99,7 @@ model{
     X[3,i] <- Sshall_ant[i]
     X[4,i] <- Sdeep_ant[i]
     X[5,i] <- PAR_ant[i]
+    X[6,i] <- LW_ant[i]
     
     # Computed antecedent values. 
     VPDant[i]     <- sum(VPDtemp[i,]) # summing over all lagged j's
@@ -102,22 +107,26 @@ model{
     Sshall_ant[i] <- sum(Sshalltemp[i,])
     Sdeep_ant[i] <- sum(Sdeeptemp[i,])
     PAR_ant[i] <- sum(PARtemp[i,])
+    LW_ant[i] <- sum(LWtemp[i,])
     
-    for(j in 1:Nlag){ # covariates weeks, months into the past
+    for(j in 1:Nlag){ # covariates into the past
       VPDtemp[i,j] <- wV[j]*V_temp[i,j]
       V_temp[i,j] <- mean(VPD[(Yday[i]-C1[j]):(Yday[i]-C2[j])]) # mean VPD during that block period
       
       Tairtemp[i,j] <- wT[j]*T_temp[i,j]
-      T_temp[i,j] <- mean(Tair[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
+      T_temp[i,j] <- mean(Tair[(Yday[i]-T1[j]):(Yday[i]-T2[j])])
       
       Sshalltemp[i,j] <- wSs[j]*Ss_temp[i,j]
-      Ss_temp[i,j] <- mean(Sshall[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
+      Ss_temp[i,j] <- mean(Sshall[(Yday[i]-T1[j]):(Yday[i]-T2[j])])
       
       Sdeeptemp[i,j] <- wT[j]*Sd_temp[i,j]
-      Sd_temp[i,j] <- mean(Sdeep[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
+      Sd_temp[i,j] <- mean(Sdeep[(Yday[i]-T1[j]):(Yday[i]-T2[j])])
       
       PARtemp[i,j] <- wT[j]*PAR_temp[i,j]
       PAR_temp[i,j] <- mean(PAR[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
+      
+      LWtemp[i,j] <- wT[j]*LW_temp[i,j]
+      LW_temp[i,j] <- mean(LW_OUT[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
     }
     
     # Calculate net sensitivities (derivative) -- derived quantities
@@ -130,33 +139,39 @@ model{
     dYdSs[i]  <- beta1[3] + beta2[2]*VPDant[i] + beta2[4]*TAant[i] + beta2[6]*Sdeep_ant[i] + beta2[9]*PAR_ant[i]
     dYdSd[i]  <- beta1[4] + beta2[3]*VPDant[i] + beta2[5]*TAant[i] + beta2[6]*Sshall_ant[i] + beta2[10]*PAR_ant[i]
     dYdPAR[i]  <- beta1[5] + beta2[7]*VPDant[i] + beta2[8]*TAant[i] + beta2[9]*Sshall_ant[i] + beta2[10]*Sshall_ant[i]
+    dYdLW[i]  <- beta1[6]
     
     # Put all net sensitivities into one array, for easy monitoring
-    dYdX[i,1] <- dYdVPD[i]
-    dYdX[i,2] <- dYdT[i]
-    dYdX[i,3] <- dYdSs[i]
-    dYdX[i,4] <- dYdSd[i]
-    dYdX[i,5] <- dYdPAR[i]
+    dYdX[i,1] <- dYdVPD[i] * WUE.pred[i] #  * WUE.pred[i] converts the net sensitivities off the log scale
+    dYdX[i,2] <- dYdT[i] * WUE.pred[i]
+    dYdX[i,3] <- dYdSs[i] * WUE.pred[i]
+    dYdX[i,4] <- dYdSd[i] * WUE.pred[i]
+    dYdX[i,5] <- dYdPAR[i] * WUE.pred[i]
+    dYdX[i,6] <- dYdLW[i] * WUE.pred[i]
   }
   
   # Relatively non-informative priors for regression parameters:
   
   # Overall intercept:
   beta0 ~ dnorm(0,0.00001)
+  beta0_p_temp[1] <- step(beta0) # Bayesian p-values
   
   # Main effects:
   for(j in 1:Nparms){
     beta1[j] ~ dnorm(0,0.00001)
+    beta1_p_temp[j] <- step(beta1[j]) # Bayesian p-values
   }
   
   # Quadratic effects
   for(j in 1:2){
     beta1a[j] ~ dnorm(0,0.00001)
+    beta1a_p_temp[j] <- step(beta1a[j]) # Bayesian p-values
   }
   
   # Two-way interaction effects:
   for(j in 1:jlength){
     beta2[j] ~ dnorm(0,0.00001)
+    beta2_p_temp[j] <- step(beta2[j]) # Bayesian p-values
   }
   
   # Priors for importance weights for each covariate, "delta" or gamma "trick"
@@ -168,6 +183,7 @@ model{
     dSs[j]   ~ dgamma(1,1)
     dSd[j]   ~ dgamma(1,1)
     dPAR[j]   ~ dgamma(1,1)
+    dLW[j]   ~ dgamma(1,1)
     
     # Compute normalized weights:
     wV[j]    <- dV[j]/sum(dV[])
@@ -175,6 +191,7 @@ model{
     wSs[j]   <- dSs[j]/sum(dSs[])
     wSd[j]   <- dSd[j]/sum(dSd[])
     wPAR[j]   <- dPAR[j]/sum(dPAR[])
+    wLW[j]   <- dLW[j]/sum(dLW[])
   }
   
   #################### end SAM model ###################################################
@@ -191,9 +208,6 @@ model{
   bch.pred ~ dnorm(bch, 0.40)T(0,) # Clapp and Hornberger parameter
   #k.pred ~ dnorm(0.5, 10)T(0,) # k = 0.5 # decay function k for intercepted E
   fc.pred ~ dnorm(fc, 200)T(S.min,1) # upper limit 1
-  # could pick a precision that's less precise
-  # Look at clay fraction across all sites, base precision off that, make more flexible:
-  # decrease precision, increase variance (but check with sites)
   sres.pred ~ dnorm(sres, 80000)T(0,S.min)# residual soil moisture
   ssat.pred ~ dnorm(ssat, 50)T(0,) # soil moisture at saturation
   psisat.pred ~ dnorm(psisat, 0.015)T(-1000,0)  # parameterized air entry pressure, in mm of water

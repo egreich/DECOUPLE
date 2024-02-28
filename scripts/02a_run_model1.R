@@ -9,6 +9,8 @@ print("sitename:")
 (sitename <- as.numeric(args[2]))
 print("seed:")
 (SEED <- as.numeric(args[3]))
+print("scale:")
+(scale <- as.numeric(args[4]))
 
 # Set defined R seed
 set.seed(SEED, kind = NULL, normal.kind = NULL)
@@ -18,8 +20,9 @@ JAGS.seed<-ceiling(runif(1,1,10000000))
 # to test the function, switch test=T
 test=F
 if(test==T){
-  varname <- 2
-  sitename <- 3
+  varname <- 1
+  sitename <- 1
+  scale = 2
 }
 
 # key for which response variable corresponds to which index
@@ -64,6 +67,12 @@ if(sitename == 1){
   load("./data_clean/sqdat.RData")
 }
 
+if(scale == 1){
+  scale = "halfhour"
+} else if(scale == 2){
+  scale = "hour"
+}
+
 # Load libraries
 # if(!"dplyr" %in% installed.packages()) {
 #   install.packages("dplyr", repos = 'https://mirror.las.iastate.edu/CRAN/') # pick appropriate CRAN mirror
@@ -90,16 +99,27 @@ library(gsubfn) # for gsub for table org
 source("./scripts/functions.R")
 source("./scripts/run_mod1_function.R")
 
-lowdev = F
-if(sitename=="lnf"){
-  if(varname=="SIF_O2A"){
-    lowdev = T
-  }
+# Aggegrate according to scale
+if(scale == "hour"){ # aggregate by hour
+  dat <- dat %>%
+    select(-X) %>%
+    mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+    group_by(DOY,hour) %>%
+    summarise(across(everything(), mean, na.rm = T))
 }
+# if(scale == "daily"){ # aggregate by day
+#   dat <- dat %>%
+#     select(-X) %>%
+#     mutate(DOY = floor(DOY), TIMESTAMP = as.Date(TIMESTAMP, format= "%Y-%m-%d")) %>%
+#     group_by(DOY) %>%
+#     summarise(across(everything(), mean, na.rm = T))
+# }
+
+lowdev = F
 
 # Run mod1
-run_mod1(dat, varname = varname, sitename = sitename,  # data and naming conventions
-         newinits = F, overwrite = T, post_only = F, lowdev=lowdev) # model specifics
+run_mod1(dat, varname = varname, sitename = sitename, scale,  # data and naming conventions
+         newinits = T, overwrite = T, lowdev=lowdev) # model specifics
 
 
 

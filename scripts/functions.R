@@ -7,6 +7,18 @@ library(purrr)
 # Create a "not in" function using negate from the purrr package
 `%nin%` <- negate(`%in%`)
 
+
+# conversion factor for LE to ET data to get at the half hour, hour, or daily scale
+convert.LE.to.ET <- function(scale = "halfhour", TA, LE.in){
+  TA <- as.numeric(TA)
+  LE.in <- as.numeric(LE.in)
+  conv.fact.time <- ifelse(scale=="hour", 3600, 1800) # if we need to convert seconds to hours or half hours
+  conv.fact.time <- ifelse(scale=="day", 86400, conv.fact.time) # if we need to convert seconds to days
+  conv.fact <- conv.fact.time/((2.501 - 0.00237*TA)*(10^6))
+  ET.out <- LE.in * conv.fact
+  return(ET.out)
+}
+
 # Function to gap-fill variables using average of previous 7 timesteps in data
 fill_small <- function(site, column_to_fill){
   ws_list <- site[,column_to_fill]
@@ -37,11 +49,10 @@ fill_small <- function(site, column_to_fill){
 # PA, TA, TS, WS, RH, SWC_shall
 # scalar inputs: Z, h, fc, fclay, fsand
 # Take the high and low of the last three days and calculate the average temperature. 
-get_evap <- function(site, Z, h, fc, fclay, fsand) {
+get_evap <- function(site, Z, h, fc, fclay, fsand, conv.fact.time) {
   
   # Define constants for calculating vapor pressure. Constants from a Vaisala publication .
   # The maximum error using the constants below is 0.083%
-  
   A  = 6.116441
   m  = 7.591386
   Tn = 240.7263
@@ -74,7 +85,7 @@ get_evap <- function(site, Z, h, fc, fclay, fsand) {
   eta_unstable <- 0.75
   #eta_stable <- 2
   rah0 <- (1/((k**2)*site$WS))*((log(Z/0.001))**2) # s/m
-  rah_unstable <- rah0/((1 + Ri)**eta_unstable) # aerodynamic resistance to heat transfer s/m, estimated as in Choudhury et al. [1986]
+  rah_unstable <- rah0/((1 + Ri)^eta_unstable) # aerodynamic resistance to heat transfer s/m, estimated as in Choudhury et al. [1986]
   #rah_stable <- rah0/((1 + Ri)**eta_stable)
   rah_stable <- ((1 - 0.75*Ri)*((log(Z/0.001))**2))/((k**2)*site$WS)
   rah <- ifelse( Ri > 0, rah_unstable, rah_stable)
@@ -109,8 +120,10 @@ get_evap <- function(site, Z, h, fc, fclay, fsand) {
   # This will calculate LE in W/m^2, so let's convert to mm (i.e. LE to E)
   # 1 Watt /m2 = 0.0864 MJ /m2/day
   # 1 MJ /m2/day  = 0.408 mm /day
-  E4.5 <- (bowen1 * ((pair * Cp)/gamma) * ((alpha2*(es - ea))/rah)) * 0.0864 * 0.408 # from 4.5 CLM
-  E3.5 <- (((pair * Cp)/gamma) * ((alpha2*(es - ea))/(rah+rss))) * 0.0864 * 0.408 # from 3.5 CLM
+  # conversion factor from bigleaf:
+  conv.fact <- conv.fact.time/((2.501 - 0.00237*site$TA)*10^6)
+  E4.5 <- (bowen1 * ((pair * Cp)/gamma) * ((alpha2*(es - ea))/rah)) * conv.fact# 0.0864 * 0.408 # from 4.5 CLM
+  E3.5 <- (((pair * Cp)/gamma) * ((alpha2*(es - ea))/(rah+rss))) * conv.fact #0.0864 * 0.408 # from 3.5 CLM
   
   # Calculate intercepted Eint using LAI from MODIS
   # intercepted E (q_intr) in kg m-2 s-1
@@ -120,7 +133,6 @@ get_evap <- function(site, Z, h, fc, fclay, fsand) {
     mutate(E4.5 = E4.5, E3.5 = E3.5, pair = pair, Bowen = bowen1, alpha = alpha2, gamma = gamma, Ri = Ri, rah_unstable = rah_unstable, rah = rah, rss = rss, es = es, ea = ea, Pa = Pa)
   return(site_E)
 }
-
 
 # function that organizes jagsUI output as a dataframe
 # part of the coda4dummies package
@@ -194,10 +206,6 @@ dumsum <- function(jagsobj, type){
   
   
   if(type == "jagsUI"){
-    
-    if(length(codaobj)<4){
-      print("This is not a full jagsUI object. If this is just the 'samples' from jagsUI, set 'type' to rjags.")
-    }
     
     jagsui <- jagsobj
     jm_coda <- jagsui$samples # convert to coda form to work with postjags functions
@@ -285,6 +293,18 @@ dumsum <- function(jagsobj, type){
   
 }
 
+lowdevrestart <- function(saved_state, vary_by = 10){
+  
+  initlow <- saved_state[[3]] # initlow is just the lowest dev chain number
+  
+  # take chain with lowest deviance, and make remaining chains vary around it
+  saved_state[[2]][[1]] = saved_state[[2]][[initlow]] # Best (low dev) initials for chain 1
+  saved_state[[2]][[2]] = lapply(saved_state[[2]][[initlow]],"*",vary_by)
+  saved_state[[2]][[3]] = lapply(saved_state[[2]][[initlow]],"/",vary_by)
+  
+  return(saved_state)
+  
+}
 
 findlowdev <- function(codaobj){
   
@@ -314,6 +334,30 @@ findlowdev <- function(codaobj){
   return(initlow) #returns the number of the lowest deviance chain
   
 }
+
+keepvars <- function(codaobj, to_keep, paramlist, type){
+  
+  if(!is.null(codaobj$samples)){
+    codaobj <- codaobj$samples
+  }
+  
+  # Create a "not in" function using negate from the purrr package
+  `%nin%` <- purrr::negate(`%in%`)
+  
+  remove_vars <- get_remove_index(to_keep, paramlist, type)
+  
+  newinits <- initfind(codaobj, OpenBUGS = FALSE)
+  saved_state <- removevars(initsin = newinits,
+                            variables = remove_vars)
+  
+  initlow <- findlowdev(codaobj) # find the lowest deviance chain
+  saved_state[[3]] <- initlow
+  names(saved_state[[3]]) <- "lowdevchain"
+  
+  return(saved_state)
+  
+}
+
 
 
 # function that connects date or doy timeseries to coda output, for use after dumsum
