@@ -18,22 +18,22 @@ dat$date <- as.Date(dat$TIMESTAMP, "%Y-%m-%d") # for filtering
 
 # For each day, take R2 of GPP and SIF, and GPP and T, and SIF and T
 # low R2s will be considered "decoupling" days
-r_df_list <- c()
-all_days <- unique(dat$date)
-for(i in c(1:length(all_days))){
-  today <- all_days[i]
-  df_temp <- dat %>%
-    filter(date == today)
-  reg <- tryCatch(lm(GPP ~ T_TEA, data = df_temp), error=function(err) NA)
-  
-  if(!is.na(reg)){
-    r_df_list[[i]] <- data.frame(date = today, rsquared = summary(reg)$r.squared)
-  }
-}
-r_df <- bind_rows(r_df_list)
-lower_bound <- quantile(r_df$rsquared)[2]
-r_df <- r_df %>%
-  mutate(coupled = ifelse(rsquared<lower_bound, F, T))
+# r_df_list <- c()
+# all_days <- unique(dat$date)
+# for(i in c(1:length(all_days))){
+#   today <- all_days[i]
+#   df_temp <- dat %>%
+#     filter(date == today)
+#   reg <- tryCatch(lm(GPP ~ T_TEA, data = df_temp), error=function(err) NA)
+#   
+#   if(!is.na(reg)){
+#     r_df_list[[i]] <- data.frame(date = today, rsquared = summary(reg)$r.squared)
+#   }
+# }
+# r_df <- bind_rows(r_df_list)
+# lower_bound <- quantile(r_df$rsquared)[2]
+# r_df <- r_df %>%
+#   mutate(coupled = ifelse(rsquared<lower_bound, F, T))
 
 
 dat <- dat %>%
@@ -41,6 +41,7 @@ dat <- dat %>%
     # decide what is SWC_shall and what is SWC_deep
     SWC_shall = SWC_1,
     SWC_deep = SWC_4,
+    SWC = rowMeans(dat[grep('SWC', names(dat))], na.rm = T),
     TS = TS_1,
     # define WUE to relate carbon to water fluxes
     WUE_GPP = GPP/ET,
@@ -49,129 +50,159 @@ dat <- dat %>%
     WUE_SIF_TEA = SIF_O2A/T_TEA
   )
 
-dat <- left_join(dat, r_df)
+#dat <- left_join(dat, r_df)
 
 # Fill small gaps
-dat$TA <- fill_small(dat, "TA")
-dat$VPD <- fill_small(dat, "VPD")
-dat$PAR <- fill_small(dat, "PAR")
-#dat$SWC_shall <- fill_small(dat, "SWC_shall")
-#dat$SWC_deep <- fill_small(dat, "SWC_deep")
+dat$TA <- fill_linear(dat, dat$TA)
+dat$VPD <- fill_linear(dat, dat$VPD)
+dat$PAR <- fill_linear(dat, dat$PAR)
+dat$SWC_shall <- fill_linear(dat, dat$SWC_shall)
+dat$SWC_deep <- fill_linear(dat, dat$SWC_deep)
+dat$ET <- fill_linear(dat, dat$ET)
+dat$TS <- fill_linear(dat, dat$TS)
+dat$WS <- fill_linear(dat, dat$WS)
 
-##################### temp pasted from yatir
-# temp - note that this shows decoupling
-p <- dat %>%
-  ggplot() +
-  geom_line(aes(x= TIMESTAMP, y = rsquared)) +
-  geom_hline(yintercept=lower_bound, linetype = "dashed", color = "red") +
-  theme_bw()
-p
-path_out = "./plots/11-15/" # set save path
-ggsave2("p_lae_rsquared.png", plot = p, path = path_out, width = 8, height = 6)
+dat <- dat %>%
+  mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+  group_by(date,hour,DOY) %>%
+  summarise(TIMESTAMP = min(TIMESTAMP),
+            Year = mean(Year),
+            TA = mean(TA, na.rm=T),
+            VPD = mean(VPD, na.rm=T),
+            RH = mean(RH, na.rm=T),
+            PA = mean(PA, na.rm=T),
+            P = sum(P, na.rm=T),
+            WS = mean(WS, na.rm=T),
+            PAR = mean(PAR, na.rm=T),
+            ET = sum(ET, na.rm=T),
+            GPP = sum(GPP, na.rm=T),
+            SIF_O2A = sum(SIF_O2A, na.rm=T),
+            T_TEA = sum(T_TEA, na.rm=T),
+            LAI = mean(LAI, na.rm=T),
+            TS = mean(TS, na.rm=T),
+            SWC_shall = mean(SWC_shall, na.rm=T),
+            SWC_deep = mean(SWC_deep, na.rm=T),
+            WUE_GPP = sum(GPP, na.rm=T)/sum(ET, na.rm=T),
+            WUE_SIF = sum(SIF_O2A, na.rm=T)/sum(ET, na.rm=T),
+            WUE_GPP_TEA = sum(GPP, na.rm=T)/sum(T_TEA, na.rm=T),
+            WUE_SIF_TEA = sum(SIF_O2A, na.rm=T)/sum(T_TEA, na.rm=T)
+  ) %>%
+  ungroup()
 
-hist(dat$rsquared)
-
-p <- dat %>%
-  ggplot() +
-  geom_line(aes(x= DOY, y = GPP/100, color = "GPP")) +
-  geom_line(aes(x= DOY, y = SIF_O2B, color = "SIF_O2B")) +
-  geom_line(aes(x= DOY, y = T_TEA, color = "T_TEA")) +
-  xlim(c(230,240)) +
-  theme_bw() +
-  ggtitle("CH-Lae MIxed Deciduous Mountain Forest") +
-  theme(legend.title = element_blank())
-p 
-path_out = "./plots/11-15/" # set save path
-ggsave2("p_lae_decoup.png", plot = p, path = path_out, width = 8, height = 6)
-############## temp pasted from yatir
-
-# temp - note that this shows decoupling
-
-p1 <- dat %>%
-  ggplot() +
-  geom_point(aes(x= TA, y = GPP, color = DOY), size = .5, alpha = .3) +
-  stat_smooth(aes(x= TA, y = GPP), method = 'loess', span = 0.5, size = 2, color = "black") +
-  theme_bw()
-
-p2 <- dat %>%
-  ggplot() +
-  geom_point(aes(x= TA, y = T_TEA, color = DOY), size = .5, alpha = .3) +
-  stat_smooth(aes(x= TA, y = T_TEA), method = 'loess', span = 0.5, size = 2, color = "black") +
-  theme_bw()
-
-p <- grid.arrange(p1,p2, nrow=2)
-
-path_out = "./plots/11-15/" # set save path
-ggsave2("p_lae_fig3.png", plot = p, path = path_out, width = 6, height = 8)
-
-
-dat %>%
-  ggplot() +
-  geom_point(aes(x= TIMESTAMP, y = rsquared, color = "rsquared"), alpha=0.5, size=.5) +
-  stat_smooth(aes(x= TIMESTAMP, y = rsquared, color = "rsquared"), method = 'loess', span = 0.01, size = .4) +
-  geom_line(aes(x= TIMESTAMP, y = LW_OUT/10000, color = "LW_OUT/10000")) +
-  geom_line(aes(x= TIMESTAMP, y = TA/1000, color = "TA/1000")) +
-  geom_hline(yintercept=lower_bound, linetype = "dashed", color = "red") +
-  theme_bw()
-
-hist(dat$rsquared)
-
-
-p1 <- dat %>%
-  ggplot() +
-  geom_point(aes(x= DOY, y = GPP/100, color = "GPP/100"), size = .5) +
-  geom_point(aes(x= DOY, y = T_TEA, color = "T_TEA"), size = .5) +
-  stat_smooth(aes(x= DOY, y = GPP/100, color = "GPP/100"), method = 'loess', span = 0.1, size = .5) +
-  stat_smooth(aes(x= DOY, y = T_TEA, color = "T_TEA"), method = 'loess', span = 0.1, size = .5) +
-  xlim(c(200,230)) +
-  theme_bw()
-
-p1 <- dat %>%
-  ggplot() +
-  geom_point(aes(x= DOY, y = SIF_O2B, color = "SIF_O2B"), size = .5) +
-  geom_point(aes(x= DOY, y = T_TEA, color = "T_TEA"), size = .5) +
-  stat_smooth(aes(x= DOY, y = SIF_O2B, color = "SIF_O2B"), method = 'loess', span = 0.1, size = .5) +
-  stat_smooth(aes(x= DOY, y = T_TEA, color = "T_TEA"), method = 'loess', span = 0.1, size = .5) +
-  xlim(c(200,230)) +
-  theme_bw()
-
-p2 <- dat %>%
-  ggplot() +
-  geom_line(aes(x= DOY, y = GPP/100, color = "GPP")) +
-  geom_line(aes(x= DOY, y = SIF_O2B, color = "SIF_O2B")) +
-  geom_line(aes(x= DOY, y = T_TEA, color = "T_TEA")) +
-  xlim(c(125,150)) +
-  theme_bw()
-
-grid.arrange(p1,p2, nrow=2)
-
-
-library(cleaRskyQuantileRegression)
-dat$Rsdpot_12 = calc_PotRadiation_CosineResponsePower(doy = dat$DOY, hour = dat$DOY,
-                                                          latDeg = 51.3282,
-                                                          longDeg = 10.3678,
-                                                          timeZone = 0, isCorrectSolartime = TRUE,
-                                                          cosineResponsePower = 1.2 )
-
-library(latticeExtra)
-lab_Rsdpot12_name = expression(bold("Potential Shortwave Radiation ")(W*m^-2))
-lab_Rsd      = expression(bold("Observed Shortwave Radiation ")(W*m^-2))
-xyplot(SW_IN ~  Rsdpot_12, data = dat,
-       xlab = list(lab_Rsdpot12_name,cex = 1.3), ylab = list(label=lab_Rsd, cex=1.3),
-       type = c("p","g"), pch = ".", cex = 3,
-       # main = paste0(dtyrmon[SiteCode == sico, unique(SiteName)]," ,Quantile Regression, tau = 0.90" ),
-       panel = function(x, y, ...) {
-         panel.xyplot(x, y, ...)
-         panel.abline(rq(y~x, tau = 0.85), col=1, lwd = 2)
-         # panel.abline(0,1, col=1, lty = 2, lwd = 2)
-         panel.ablineq(0,1, col=1, lty = 2, lwd = 2, at = 0.89, label = "1:1", rotate = TRUE, fontfamily = "sans", cex = 1.5,pos = 3)
-         panel.ablineq(rq(y~x, tau = 0.85), col=1, at = 0.7, rotate =TRUE,
-                       pos = 3, label = "Slope of 85% Quantile", cex = 1.5, font = "Helvetica", fontface = 2 )
-         panel.text(700,-20, "half hourly data", fontfamily = "Helvetica")
-       },
-       grid = TRUE)
-
-test <- calc_ClearSky_QuantileRegression(dat$SW_IN, dat$Rsdpot_12)
+# ##################### temp pasted from yatir
+# # temp - note that this shows decoupling
+# p <- dat %>%
+#   ggplot() +
+#   geom_line(aes(x= TIMESTAMP, y = rsquared)) +
+#   geom_hline(yintercept=lower_bound, linetype = "dashed", color = "red") +
+#   theme_bw()
+# p
+# path_out = "./plots/11-15/" # set save path
+# ggsave2("p_lae_rsquared.png", plot = p, path = path_out, width = 8, height = 6)
+# 
+# hist(dat$rsquared)
+# 
+# p <- dat %>%
+#   ggplot() +
+#   geom_line(aes(x= DOY, y = GPP/100, color = "GPP")) +
+#   geom_line(aes(x= DOY, y = SIF_O2B, color = "SIF_O2B")) +
+#   geom_line(aes(x= DOY, y = T_TEA, color = "T_TEA")) +
+#   xlim(c(230,240)) +
+#   theme_bw() +
+#   ggtitle("CH-Lae MIxed Deciduous Mountain Forest") +
+#   theme(legend.title = element_blank())
+# p 
+# path_out = "./plots/11-15/" # set save path
+# ggsave2("p_lae_decoup.png", plot = p, path = path_out, width = 8, height = 6)
+# ############## temp pasted from yatir
+# 
+# # temp - note that this shows decoupling
+# 
+# p1 <- dat %>%
+#   ggplot() +
+#   geom_point(aes(x= TA, y = GPP, color = DOY), size = .5, alpha = .3) +
+#   stat_smooth(aes(x= TA, y = GPP), method = 'loess', span = 0.5, size = 2, color = "black") +
+#   theme_bw()
+# 
+# p2 <- dat %>%
+#   ggplot() +
+#   geom_point(aes(x= TA, y = T_TEA, color = DOY), size = .5, alpha = .3) +
+#   stat_smooth(aes(x= TA, y = T_TEA), method = 'loess', span = 0.5, size = 2, color = "black") +
+#   theme_bw()
+# 
+# p <- grid.arrange(p1,p2, nrow=2)
+# 
+# path_out = "./plots/11-15/" # set save path
+# ggsave2("p_lae_fig3.png", plot = p, path = path_out, width = 6, height = 8)
+# 
+# 
+# dat %>%
+#   ggplot() +
+#   geom_point(aes(x= TIMESTAMP, y = rsquared, color = "rsquared"), alpha=0.5, size=.5) +
+#   stat_smooth(aes(x= TIMESTAMP, y = rsquared, color = "rsquared"), method = 'loess', span = 0.01, size = .4) +
+#   geom_line(aes(x= TIMESTAMP, y = LW_OUT/10000, color = "LW_OUT/10000")) +
+#   geom_line(aes(x= TIMESTAMP, y = TA/1000, color = "TA/1000")) +
+#   geom_hline(yintercept=lower_bound, linetype = "dashed", color = "red") +
+#   theme_bw()
+# 
+# hist(dat$rsquared)
+# 
+# 
+# p1 <- dat %>%
+#   ggplot() +
+#   geom_point(aes(x= DOY, y = GPP/100, color = "GPP/100"), size = .5) +
+#   geom_point(aes(x= DOY, y = T_TEA, color = "T_TEA"), size = .5) +
+#   stat_smooth(aes(x= DOY, y = GPP/100, color = "GPP/100"), method = 'loess', span = 0.1, size = .5) +
+#   stat_smooth(aes(x= DOY, y = T_TEA, color = "T_TEA"), method = 'loess', span = 0.1, size = .5) +
+#   xlim(c(200,230)) +
+#   theme_bw()
+# 
+# p1 <- dat %>%
+#   ggplot() +
+#   geom_point(aes(x= DOY, y = SIF_O2B, color = "SIF_O2B"), size = .5) +
+#   geom_point(aes(x= DOY, y = T_TEA, color = "T_TEA"), size = .5) +
+#   stat_smooth(aes(x= DOY, y = SIF_O2B, color = "SIF_O2B"), method = 'loess', span = 0.1, size = .5) +
+#   stat_smooth(aes(x= DOY, y = T_TEA, color = "T_TEA"), method = 'loess', span = 0.1, size = .5) +
+#   xlim(c(200,230)) +
+#   theme_bw()
+# 
+# p2 <- dat %>%
+#   ggplot() +
+#   geom_line(aes(x= DOY, y = GPP/100, color = "GPP")) +
+#   geom_line(aes(x= DOY, y = SIF_O2B, color = "SIF_O2B")) +
+#   geom_line(aes(x= DOY, y = T_TEA, color = "T_TEA")) +
+#   xlim(c(125,150)) +
+#   theme_bw()
+# 
+# grid.arrange(p1,p2, nrow=2)
+# 
+# 
+# library(cleaRskyQuantileRegression)
+# dat$Rsdpot_12 = calc_PotRadiation_CosineResponsePower(doy = dat$DOY, hour = dat$DOY,
+#                                                           latDeg = 51.3282,
+#                                                           longDeg = 10.3678,
+#                                                           timeZone = 0, isCorrectSolartime = TRUE,
+#                                                           cosineResponsePower = 1.2 )
+# 
+# library(latticeExtra)
+# lab_Rsdpot12_name = expression(bold("Potential Shortwave Radiation ")(W*m^-2))
+# lab_Rsd      = expression(bold("Observed Shortwave Radiation ")(W*m^-2))
+# xyplot(SW_IN ~  Rsdpot_12, data = dat,
+#        xlab = list(lab_Rsdpot12_name,cex = 1.3), ylab = list(label=lab_Rsd, cex=1.3),
+#        type = c("p","g"), pch = ".", cex = 3,
+#        # main = paste0(dtyrmon[SiteCode == sico, unique(SiteName)]," ,Quantile Regression, tau = 0.90" ),
+#        panel = function(x, y, ...) {
+#          panel.xyplot(x, y, ...)
+#          panel.abline(rq(y~x, tau = 0.85), col=1, lwd = 2)
+#          # panel.abline(0,1, col=1, lty = 2, lwd = 2)
+#          panel.ablineq(0,1, col=1, lty = 2, lwd = 2, at = 0.89, label = "1:1", rotate = TRUE, fontfamily = "sans", cex = 1.5,pos = 3)
+#          panel.ablineq(rq(y~x, tau = 0.85), col=1, at = 0.7, rotate =TRUE,
+#                        pos = 3, label = "Slope of 85% Quantile", cex = 1.5, font = "Helvetica", fontface = 2 )
+#          panel.text(700,-20, "half hourly data", fontfamily = "Helvetica")
+#        },
+#        grid = TRUE)
+# 
+# test <- calc_ClearSky_QuantileRegression(dat$SW_IN, dat$Rsdpot_12)
 
 
 save(dat, file = "data_clean/laedat.RData") # save prepped data as R file, this will be the model input
@@ -184,31 +215,12 @@ dat$date <- as.Date(dat$TIMESTAMP, "%Y-%m-%d") # for filtering
 dat$TIMESTAMP <- ymd_hms(dat$TIMESTAMP) # for filtering
 
 
-# For each day, take R2 of GPP and SIF, and GPP and T, and SIF and T
-# low R2s will be considered "decoupling" days
-r_df_list <- c()
-all_days <- unique(dat$date)
-for(i in c(1:length(all_days))){
-  today <- all_days[i]
-  df_temp <- dat %>%
-    filter(date == today)
-  reg <- tryCatch(lm(GPP ~ SIF_O2A, data = df_temp), error=function(err) NA)
-  
-  if(!is.na(reg)){
-    r_df_list[[i]] <- data.frame(date = today, rsquared = summary(reg)$r.squared)
-  }
-}
-r_df <- bind_rows(r_df_list)
-lower_bound <- quantile(r_df$rsquared)[2]
-r_df <- r_df %>%
-  mutate(coupled = ifelse(rsquared<lower_bound, F, T))
-
-
 dat <- dat %>%
   mutate(
     # decide what is SWC_shall and what is SWC_deep
     SWC_shall = SWC_1,
     SWC_deep = SWC_2,
+    SWC = rowMeans(dat[grep('SWC', names(dat))], na.rm = T),
     TS = TS_1,
     # define WUE to relate carbon to water fluxes
     WUE_GPP = GPP/ET,
@@ -217,14 +229,44 @@ dat <- dat %>%
     WUE_SIF_TEA = SIF_O2A/T_TEA
   )
 
-dat <- left_join(dat, r_df)
+#dat <- left_join(dat, r_df)
 
 # Fill small gaps
-dat$TA <- fill_small(dat, "TA")
-dat$VPD <- fill_small(dat, "VPD")
-dat$PAR <- fill_small(dat, "PAR")
-#dat$SWC_shall <- fill_small(dat, "SWC_shall")
-#dat$SWC_deep <- fill_small(dat, "SWC_deep")
+dat$TA <- fill_linear(dat, dat$TA)
+dat$VPD <- fill_linear(dat, dat$VPD)
+dat$PAR <- fill_linear(dat, dat$PAR)
+dat$SWC_shall <- fill_linear(dat, dat$SWC_shall)
+dat$SWC_deep <- fill_linear(dat, dat$SWC_deep)
+dat$ET <- fill_linear(dat, dat$ET)
+dat$TS <- fill_linear(dat, dat$TS)
+dat$WS <- fill_linear(dat, dat$WS)
+
+dat <- dat %>%
+  mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+  group_by(date,hour,DOY) %>%
+  summarise(TIMESTAMP = min(TIMESTAMP),
+            Year = mean(Year),
+            TA = mean(TA, na.rm=T),
+            VPD = mean(VPD, na.rm=T),
+            RH = mean(RH, na.rm=T),
+            PA = mean(PA, na.rm=T),
+            P = sum(P, na.rm=T),
+            WS = mean(WS, na.rm=T),
+            PAR = mean(PAR, na.rm=T),
+            ET = sum(ET, na.rm=T),
+            GPP = sum(GPP, na.rm=T),
+            SIF_O2A = sum(SIF_O2A, na.rm=T),
+            T_TEA = sum(T_TEA),
+            LAI = mean(LAI),
+            TS = mean(TS, na.rm=T),
+            SWC_shall = mean(SWC_shall, na.rm=T),
+            SWC_deep = mean(SWC_deep, na.rm=T),
+            WUE_GPP = sum(GPP, na.rm=T)/sum(ET, na.rm=T),
+            WUE_SIF = sum(SIF_O2A, na.rm=T)/sum(ET, na.rm=T),
+            WUE_GPP_TEA = sum(GPP, na.rm=T)/sum(T_TEA, na.rm=T),
+            WUE_SIF_TEA = sum(SIF_O2A, na.rm=T)/sum(T_TEA, na.rm=T)
+  ) %>%
+  ungroup()
 
 
 save(dat, file = "data_clean/crkdat.RData") # save prepped data as R file, this will be the model input
@@ -237,31 +279,12 @@ dat$TIMESTAMP <- ymd_hms(dat$TIMESTAMP) # for filtering
 dat$date <- as.Date(dat$TIMESTAMP, "%Y%m%d") # for filtering
 
 
-# For each day, take R2 of GPP and SIF, and GPP and T, and SIF and T
-# low R2s will be considered "decoupling" days
-r_df_list <- c()
-all_days <- unique(dat$date)
-for(i in c(1:length(all_days))){
-  today <- all_days[i]
-  df_temp <- dat %>%
-    filter(date == today)
-  reg <- tryCatch(lm(GPP ~ SIF_O2A, data = df_temp), error=function(err) NA)
-  
-  if(!is.na(reg)){
-    r_df_list[[i]] <- data.frame(date = today, rsquared = summary(reg)$r.squared)
-  }
-}
-r_df <- bind_rows(r_df_list)
-lower_bound <- quantile(r_df$rsquared)[2]
-r_df <- r_df %>%
-  mutate(coupled = ifelse(rsquared<lower_bound, F, T))
-
-
 dat <- dat %>%
   mutate(
     # decide what is SWC_shall and what is SWC_deep
     SWC_shall = SWC_1,
     SWC_deep = SWC_4,
+    SWC = rowMeans(dat[grep('SWC', names(dat))], na.rm = T),
     TS = TS_1,
     # define WUE to relate carbon to water fluxes
     WUE_GPP = GPP/ET,
@@ -270,14 +293,44 @@ dat <- dat %>%
     WUE_SIF_TEA = SIF_O2A/T_TEA
   )
 
-dat <- left_join(dat, r_df)
+#dat <- left_join(dat, r_df)
 
 # Fill small gaps
-dat$TA <- fill_small(dat, "TA")
-dat$VPD <- fill_small(dat, "VPD")
-dat$PAR <- fill_small(dat, "PAR")
-#dat$SWC_shall <- fill_small(dat, "SWC_shall")
-#dat$SWC_deep <- fill_small(dat, "SWC_deep")
+dat$TA <- fill_linear(dat, dat$TA)
+dat$VPD <- fill_linear(dat, dat$VPD)
+dat$PAR <- fill_linear(dat, dat$PAR)
+dat$SWC_shall <- fill_linear(dat, dat$SWC_shall)
+dat$SWC_deep <- fill_linear(dat, dat$SWC_deep)
+dat$ET <- fill_linear(dat, dat$ET)
+dat$TS <- fill_linear(dat, dat$TS)
+dat$WS <- fill_linear(dat, dat$WS)
+
+dat <- dat %>%
+  mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+  group_by(date,hour,DOY) %>%
+  summarise(TIMESTAMP = min(TIMESTAMP),
+            Year = mean(Year),
+            TA = mean(TA, na.rm=T),
+            VPD = mean(VPD, na.rm=T),
+            RH = mean(RH, na.rm=T),
+            PA = mean(PA, na.rm=T),
+            P = sum(P, na.rm=T),
+            WS = mean(WS, na.rm=T),
+            PAR = mean(PAR, na.rm=T),
+            ET = sum(ET, na.rm=T),
+            GPP = sum(GPP, na.rm=T),
+            SIF_O2A = sum(SIF_O2A, na.rm=T),
+            T_TEA = sum(T_TEA, na.rm=T),
+            LAI = mean(LAI, na.rm=T),
+            TS = mean(TS, na.rm=T),
+            SWC_shall = mean(SWC_shall, na.rm=T),
+            SWC_deep = mean(SWC_deep, na.rm=T),
+            WUE_GPP = sum(GPP, na.rm=T)/sum(ET, na.rm=T),
+            WUE_SIF = sum(SIF_O2A, na.rm=T)/sum(ET, na.rm=T),
+            WUE_GPP_TEA = sum(GPP, na.rm=T)/sum(T_TEA, na.rm=T),
+            WUE_SIF_TEA = sum(SIF_O2A, na.rm=T)/sum(T_TEA, na.rm=T)
+  ) %>%
+  ungroup()
 
 
 save(dat, file = "data_clean/gebdat.RData") # save prepped data as R file, this will be the model input
@@ -289,31 +342,13 @@ dat <- read.csv("./data_formatted/DE-Lnf/DE-Lnf_dat.csv")
 dat$date <- as.Date(dat$TIMESTAMP, "%Y-%m-%d") # for filtering
 dat$TIMESTAMP <- ymd_hms(dat$TIMESTAMP) # for filtering
 
-# For each day, take R2 of GPP and SIF, and GPP and T, and SIF and T
-# low R2s will be considered "decoupling" days
-r_df_list <- c()
-all_days <- unique(dat$date)
-for(i in c(1:length(all_days))){
-  today <- all_days[i]
-  df_temp <- dat %>%
-    filter(date == today)
-  reg <- tryCatch(lm(GPP ~ SIF_O2A, data = df_temp), error=function(err) NA)
-  
-  if(!is.na(reg)){
-    r_df_list[[i]] <- data.frame(date = today, rsquared = summary(reg)$r.squared)
-  }
-}
-r_df <- bind_rows(r_df_list)
-lower_bound <- quantile(r_df$rsquared)[2]
-r_df <- r_df %>%
-  mutate(coupled = ifelse(rsquared<lower_bound, F, T))
-
 
 dat <- dat %>%
   mutate(
     # decide what is SWC_shall and what is SWC_deep
     SWC_shall = SWC_1,
     SWC_deep = SWC_2,
+    SWC = rowMeans(dat[grep('SWC', names(dat))], na.rm = T),
     TS = TS_1,
     # define WUE to relate carbon to water fluxes
     WUE_GPP = GPP/ET,
@@ -322,13 +357,44 @@ dat <- dat %>%
     WUE_SIF_TEA = SIF_O2A/T_TEA
   )
 
-dat <- left_join(dat, r_df)
+#dat <- left_join(dat, r_df)
 
 # Fill small gaps
-dat$TA <- fill_small(dat, "TA")
-dat$VPD <- fill_small(dat, "VPD")
-#dat$SWC_shall <- fill_small(dat, "SWC_shall")
-#dat$SWC_deep <- fill_small(dat, "SWC_deep")
+dat$TA <- fill_linear(dat, dat$TA)
+dat$VPD <- fill_linear(dat, dat$VPD)
+dat$PAR <- fill_linear(dat, dat$PAR)
+dat$SWC_shall <- fill_linear(dat, dat$SWC_shall)
+dat$SWC_deep <- fill_linear(dat, dat$SWC_deep)
+dat$ET <- fill_linear(dat, dat$ET)
+dat$TS <- fill_linear(dat, dat$TS)
+dat$WS <- fill_linear(dat, dat$WS)
+
+dat <- dat %>%
+  mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+  group_by(date,hour,DOY) %>%
+  summarise(TIMESTAMP = min(TIMESTAMP),
+            Year = mean(Year),
+            TA = mean(TA, na.rm=T),
+            VPD = mean(VPD, na.rm=T),
+            RH = mean(RH, na.rm=T),
+            PA = mean(PA, na.rm=T),
+            P = sum(P, na.rm=T),
+            WS = mean(WS, na.rm=T),
+            PAR = mean(PAR, na.rm=T),
+            ET = sum(ET, na.rm=T),
+            GPP = sum(GPP, na.rm=T),
+            SIF_O2A = sum(SIF_O2A, na.rm=T),
+            T_TEA = sum(T_TEA),
+            LAI = mean(LAI),
+            TS = mean(TS, na.rm=T),
+            SWC_shall = mean(SWC_shall, na.rm=T),
+            SWC_deep = mean(SWC_deep, na.rm=T),
+            WUE_GPP = sum(GPP, na.rm=T)/sum(ET, na.rm=T),
+            WUE_SIF = sum(SIF_O2A, na.rm=T)/sum(ET, na.rm=T),
+            WUE_GPP_TEA = sum(GPP, na.rm=T)/sum(T_TEA, na.rm=T),
+            WUE_SIF_TEA = sum(SIF_O2A, na.rm=T)/sum(T_TEA, na.rm=T)
+  ) %>%
+  ungroup()
 
 
 save(dat, file = "data_clean/lnfdat.RData") # save prepped data as R file, this will be the model input
@@ -342,35 +408,12 @@ dat$date <- as.Date(dat$TIMESTAMP, "%Y-%m-%d") # for filtering
 dat$TIMESTAMP <- ymd_hms(dat$TIMESTAMP) # for filtering
 
 
-# For each day, take R2 of GPP and SIF, and GPP and T, and SIF and T
-# low R2s will be considered "decoupling" days
-#summary(lm(SIF_O2B ~ T_TEA, data = dat))
-#summary(lm(GPP ~ T_TEA, data = dat))
-r_df_list <- c()
-all_days <- unique(dat$date)
-for(i in c(1:length(all_days))){
-  today <- all_days[i]
-  df_temp <- dat %>%
-    filter(date == today)
-  
-  reg <- tryCatch(lm(GPP ~ T_TEA, data = df_temp), error=function(err) NA)
-  #reg2 <- tryCatch(lm(SIF_O2B ~ T_TEA, data = df_temp), error=function(err) NA)
-  
-  if(!is.na(reg)){
-    r_df_list[[i]] <- data.frame(date = today, rsquared = summary(reg)$r.squared)
-  }
-}
-r_df <- bind_rows(r_df_list)
-lower_bound <- quantile(r_df$rsquared)[2]
-r_df <- r_df %>%
-  mutate(coupled = ifelse(rsquared<lower_bound, F, T))
-
-
 dat <- dat %>%
   mutate(
     # decide what is SWC_shall and what is SWC_deep
     SWC_shall = SWC_1,
     SWC_deep = SWC_4,
+    SWC = rowMeans(dat[grep('SWC', names(dat))], na.rm = T),
     TS = TS_1,
     # define WUE to relate carbon to water fluxes
     WUE_GPP = GPP/ET,
@@ -379,82 +422,71 @@ dat <- dat %>%
     WUE_SIF_TEA = SIF_O2A/T_TEA
   )
 
-dat <- left_join(dat, r_df)
+#dat <- left_join(dat, r_df)
 
 # Fill small gaps
-dat$TA <- fill_small(dat, "TA")
-dat$VPD <- fill_small(dat, "VPD")
-#dat$SWC_shall <- fill_small(dat, "SWC_shall")
-#dat$SWC_deep <- fill_small(dat, "SWC_deep")
+dat$TA <- fill_linear(dat, dat$TA)
+dat$VPD <- fill_linear(dat, dat$VPD)
+dat$PAR <- fill_linear(dat, dat$PAR)
+dat$SWC_shall <- fill_linear(dat, dat$SWC_shall)
+dat$SWC_deep <- fill_linear(dat, dat$SWC_deep)
+dat$ET <- fill_linear(dat, dat$ET)
+dat$TS <- fill_linear(dat, dat$TS)
+dat$WS <- fill_linear(dat, dat$WS)
 
-# temp - note that this shows decoupling
-p <- dat %>%
-  ggplot() +
-  geom_line(aes(x= TIMESTAMP, y = rsquared)) +
-  geom_hline(yintercept=lower_bound, linetype = "dashed", color = "red") +
-  theme_bw()
-p
-path_out = "./plots/11-15/" # set save path
-ggsave2("p_yat_rsquared.png", plot = p, path = path_out, width = 8, height = 6)
-
-hist(dat$rsquared)
-
-p <- dat %>%
-  ggplot() +
-  geom_line(aes(x= DOY, y = GPP/100, color = "GPP")) +
-  geom_line(aes(x= DOY, y = SIF_O2B, color = "SIF_O2B")) +
-  geom_line(aes(x= DOY, y = T_TEA, color = "T_TEA")) +
-  xlim(c(110,115)) +
-  theme_bw() +
-  ggtitle("IL-Yatir Mediterranean Evergreen Coniferous Forest") +
-  theme(legend.title = element_blank())
- p 
-  path_out = "./plots/11-15/" # set save path
-  ggsave2("p_yat_decoup.png", plot = p, path = path_out, width = 8, height = 6)
-  
-  p1 <- dat %>%
-    ggplot() +
-    geom_point(aes(x= TA, y = GPP, color = DOY), size = .5, alpha = .3) +
-    stat_smooth(aes(x= TA, y = GPP), method = 'loess', span = 0.5, size = 2, color = "black") +
-    theme_bw()
-  
-  p2 <- dat %>%
-    ggplot() +
-    geom_point(aes(x= TA, y = T_TEA, color = DOY), size = .5, alpha = .3) +
-    stat_smooth(aes(x= TA, y = T_TEA), method = 'loess', span = 0.5, size = 2, color = "black") +
-    theme_bw()
-  
-  p <- grid.arrange(p1,p2, nrow=2)
-  
-  path_out = "./plots/11-15/" # set save path
-  ggsave2("p_yat_fig3.png", plot = p, path = path_out, width = 6, height = 8)
+dat <- dat %>%
+  mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+  group_by(date,hour,DOY) %>%
+  summarise(TIMESTAMP = min(TIMESTAMP),
+            Year = mean(Year),
+            TA = mean(TA, na.rm=T),
+            VPD = mean(VPD, na.rm=T),
+            RH = mean(RH, na.rm=T),
+            PA = mean(PA, na.rm=T),
+            P = sum(P, na.rm=T),
+            WS = mean(WS, na.rm=T),
+            PAR = mean(PAR, na.rm=T),
+            ET = sum(ET, na.rm=T),
+            GPP = sum(GPP, na.rm=T),
+            SIF_O2A = sum(SIF_O2A, na.rm=T),
+            T_TEA = sum(T_TEA, na.rm=T),
+            LAI = mean(LAI, na.rm=T),
+            TS = mean(TS, na.rm=T),
+            SWC_shall = mean(SWC_shall, na.rm=T),
+            SWC_deep = mean(SWC_deep, na.rm=T),
+            WUE_GPP = sum(GPP, na.rm=T)/sum(ET, na.rm=T),
+            WUE_SIF = sum(SIF_O2A, na.rm=T)/sum(ET, na.rm=T),
+            WUE_GPP_TEA = sum(GPP, na.rm=T)/sum(T_TEA, na.rm=T),
+            WUE_SIF_TEA = sum(SIF_O2A, na.rm=T)/sum(T_TEA, na.rm=T)
+  ) %>%
+  ungroup()
 
 
-dat$Rsdpot_12 = calc_PotRadiation_CosineResponsePower(doy = dat$DOY, hour = dat$DOY,
-                                                      latDeg = 31.345306,
-                                                      longDeg = 35.051861,
-                                                      timeZone = 0, isCorrectSolartime = TRUE,
-                                                      cosineResponsePower = 1.2 )
-
-library(latticeExtra)
-lab_Rsdpot12_name = expression(bold("Potential Shortwave Radiation ")(W*m^-2))
-lab_Rsd      = expression(bold("Observed Shortwave Radiation ")(W*m^-2))
-xyplot(SW_IN ~  Rsdpot_12, data = dat,
-       xlab = list(lab_Rsdpot12_name,cex = 1.3), ylab = list(label=lab_Rsd, cex=1.3),
-       type = c("p","g"), pch = ".", cex = 3,
-       # main = paste0(dtyrmon[SiteCode == sico, unique(SiteName)]," ,Quantile Regression, tau = 0.90" ),
-       panel = function(x, y, ...) {
-         panel.xyplot(x, y, ...)
-         panel.abline(rq(y~x, tau = 0.85), col=1, lwd = 2)
-         # panel.abline(0,1, col=1, lty = 2, lwd = 2)
-         panel.ablineq(0,1, col=1, lty = 2, lwd = 2, at = 0.89, label = "1:1", rotate = TRUE, fontfamily = "sans", cex = 1.5,pos = 3)
-         panel.ablineq(rq(y~x, tau = 0.85), col=1, at = 0.7, rotate =TRUE,
-                       pos = 3, label = "Slope of 85% Quantile", cex = 1.5, font = "Helvetica", fontface = 2 )
-         panel.text(700,-20, "half hourly data", fontfamily = "Helvetica")
-       },
-       grid = TRUE)
-
-test <- calc_ClearSky_QuantileRegression(dat$SW_IN, dat$Rsdpot_12)
+# dat$Rsdpot_12 = calc_PotRadiation_CosineResponsePower(doy = dat$DOY, hour = dat$DOY,
+#                                                       latDeg = 31.345306,
+#                                                       longDeg = 35.051861,
+#                                                       timeZone = 0, isCorrectSolartime = TRUE,
+#                                                       cosineResponsePower = 1.2 )
+# 
+# library(latticeExtra)
+# lab_Rsdpot12_name = expression(bold("Potential Shortwave Radiation ")(W*m^-2))
+# lab_Rsd      = expression(bold("Observed Shortwave Radiation ")(W*m^-2))
+# xyplot(SW_IN ~  Rsdpot_12, data = dat,
+#        xlab = list(lab_Rsdpot12_name,cex = 1.3), ylab = list(label=lab_Rsd, cex=1.3),
+#        type = c("p","g"), pch = ".", cex = 3,
+#        # main = paste0(dtyrmon[SiteCode == sico, unique(SiteName)]," ,Quantile Regression, tau = 0.90" ),
+#        panel = function(x, y, ...) {
+#          panel.xyplot(x, y, ...)
+#          panel.abline(rq(y~x, tau = 0.85), col=1, lwd = 2)
+#          # panel.abline(0,1, col=1, lty = 2, lwd = 2)
+#          panel.ablineq(0,1, col=1, lty = 2, lwd = 2, at = 0.89, label = "1:1", rotate = TRUE, fontfamily = "sans", cex = 1.5,pos = 3)
+#          panel.ablineq(rq(y~x, tau = 0.85), col=1, at = 0.7, rotate =TRUE,
+#                        pos = 3, label = "Slope of 85% Quantile", cex = 1.5, font = "Helvetica", fontface = 2 )
+#          panel.text(700,-20, "half hourly data", fontfamily = "Helvetica")
+#        },
+#        grid = TRUE)
+# 
+# test <- calc_ClearSky_QuantileRegression(dat$SW_IN, dat$Rsdpot_12)
 
 
 save(dat, file = "data_clean/yatdat.RData") # save prepped data as R file, this will be the model input
@@ -467,32 +499,12 @@ dat$date <- as.Date(dat$TIMESTAMP, "%Y-%m-%d") # for filtering
 dat$TIMESTAMP <- ymd_hms(dat$TIMESTAMP) # for filtering
 
 
-
-# For each day, take R2 of GPP and SIF
-# low R2s will be considered "decoupling" days
-r_df_list <- c()
-all_days <- unique(dat$date)
-for(i in c(1:length(all_days))){
-  today <- all_days[i]
-  df_temp <- dat %>%
-    filter(date == today)
-  reg <- tryCatch(lm(GPP ~ SIF_O2A, data = df_temp), error=function(err) NA)
-  
-  if(!is.na(reg)){
-    r_df_list[[i]] <- data.frame(date = today, rsquared = summary(reg)$r.squared)
-  }
-}
-r_df <- bind_rows(r_df_list)
-lower_bound <- quantile(r_df$rsquared)[2]
-r_df <- r_df %>%
-  mutate(coupled = ifelse(rsquared<lower_bound, F, T))
-
-
 dat <- dat %>%
   mutate(
     # decide what is SWC_shall and what is SWC_deep
     SWC_shall = SWC_1,
     SWC_deep = SWC_4,
+    SWC = rowMeans(dat[grep('SWC', names(dat))], na.rm = T),
     TS = TS_1,
     # define WUE to relate carbon to water fluxes
     WUE_GPP = GPP/ET,
@@ -501,13 +513,44 @@ dat <- dat %>%
     WUE_SIF_TEA = SIF_O2A/T_TEA
   )
 
-dat <- left_join(dat, r_df)
+#dat <- left_join(dat, r_df)
 
 # Fill small gaps
-dat$TA <- fill_small(dat, "TA")
-dat$VPD <- fill_small(dat, "VPD")
-#dat$SWC_shall <- fill_small(dat, "SWC_shall")
-#dat$SWC_deep <- fill_small(dat, "SWC_deep")
+dat$TA <- fill_linear(dat, dat$TA)
+dat$VPD <- fill_linear(dat, dat$VPD)
+dat$PAR <- fill_linear(dat, dat$PAR)
+dat$SWC_shall <- fill_linear(dat, dat$SWC_shall)
+dat$SWC_deep <- fill_linear(dat, dat$SWC_deep)
+dat$ET <- fill_linear(dat, dat$ET)
+dat$TS <- fill_linear(dat, dat$TS)
+dat$WS <- fill_linear(dat, dat$WS)
+
+dat <- dat %>%
+  mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+  group_by(date,hour,DOY) %>%
+  summarise(TIMESTAMP = min(TIMESTAMP),
+            Year = mean(Year),
+            TA = mean(TA, na.rm=T),
+            VPD = mean(VPD, na.rm=T),
+            RH = mean(RH, na.rm=T),
+            PA = mean(PA, na.rm=T),
+            P = sum(P, na.rm=T),
+            WS = mean(WS, na.rm=T),
+            #PAR = NA, #temp
+            ET = sum(ET, na.rm=T),
+            GPP = sum(GPP, na.rm=T),
+            SIF_O2A = sum(SIF_O2A, na.rm=T),
+            T_TEA = sum(T_TEA),
+            LAI = mean(LAI),
+            TS = mean(TS, na.rm=T),
+            SWC_shall = mean(SWC_shall, na.rm=T),
+            SWC_deep = mean(SWC_deep, na.rm=T),
+            WUE_GPP = sum(GPP, na.rm=T)/sum(ET, na.rm=T),
+            WUE_SIF = sum(SIF_O2A, na.rm=T)/sum(ET, na.rm=T),
+            WUE_GPP_TEA = sum(GPP, na.rm=T)/sum(T_TEA, na.rm=T),
+            WUE_SIF_TEA = sum(SIF_O2A, na.rm=T)/sum(T_TEA, na.rm=T)
+  ) %>%
+  ungroup()
 
 save(dat, file = "data_clean/jrsdat.RData") # save prepped data as R file, this will be the model input
 
@@ -517,8 +560,8 @@ save(dat, file = "data_clean/jrsdat.RData") # save prepped data as R file, this 
 dat <- read.csv("./data_formatted/Sq/Sq_dat.csv")
 dat$date <- as.Date(dat$TIMESTAMP, "%Y-%m-%d") # for filtering
 dat$TIMESTAMP <- ymd_hms(dat$TIMESTAMP) # for filtering
-roi <- dat$Ref_770_780 # reflectance of interest
-doy_win <- c(220,260)# window to look at
+#roi <- dat$Ref_770_780 # reflectance of interest
+#doy_win <- c(220,260)# window to look at
 
 # Look at SIF and Reflectance
 # p1 <- ggplot(data = dat) +
@@ -566,45 +609,28 @@ doy_win <- c(220,260)# window to look at
 # grid.arrange(p1,p2, nrow=2)
 
 
-# For each day, take R2 of GPP and SIF, and GPP and T, and SIF and T
-# low R2s will be considered "decoupling" days
-r_df_list <- c()
-all_days <- unique(dat$date)
-for(i in c(1:length(all_days))){
-  today <- all_days[i]
-  df_temp <- dat %>%
-    filter(date == today)
-  reg <- tryCatch(lm(GPP ~ SIF_O2A, data = df_temp), error=function(err) NA)
-  
-  if(!is.na(reg)){
-    r_df_list[[i]] <- data.frame(date = today, rsquared = summary(reg)$r.squared)
-  }
-
-}
-r_df <- bind_rows(r_df_list)
-lower_bound <- quantile(r_df$rsquared, na.rm=T)[2]
-r_df <- r_df %>%
-  mutate(coupled = ifelse(rsquared<lower_bound, F, T))
-
-
 dat <- dat %>%
   mutate(
     # decide what is SWC_shall and what is SWC_deep
     SWC_shall = SWC_1_1_1,
     SWC_deep = SWC_1_3_1,
+    SWC = rowMeans(dat[grep('SWC', names(dat))], na.rm = T),
     # define WUE to relate carbon to water fluxes
     WUE_GPP = GPP/ET,
     WUE_SIF = SIF_O2A/ET
   )
 
-dat <- left_join(dat, r_df)
+#dat <- left_join(dat, r_df)
 
 # Fill small gaps
-dat$TA <- fill_small(dat, "TA")
-dat$VPD <- fill_small(dat, "VPD")
-dat$PAR <- fill_small(dat, "PAR")
-#dat$SWC_shall <- fill_small(dat, "SWC_shall")
-#dat$SWC_deep <- fill_small(dat, "SWC_deep")
+dat$TA <- fill_linear(dat, dat$TA)
+dat$VPD <- fill_linear(dat, dat$VPD)
+dat$PAR <- fill_linear(dat, dat$PAR)
+dat$SWC_shall <- fill_linear(dat, dat$SWC_shall)
+dat$SWC_deep <- fill_linear(dat, dat$SWC_deep)
+dat$ET <- fill_linear(dat, dat$ET)
+dat$TS <- fill_linear(dat, dat$TS)
+dat$WS <- fill_linear(dat, dat$WS)
 
 
 # fill SIF gaps in the middle of days
@@ -637,9 +663,149 @@ dat$PAR <- fill_small(dat, "PAR")
 #   dat$SIF_O2A[first:last] <- df_temp$SIF_O2A # add back into main dataframe
 # }
 
+# Aggegrate by the hour
+dat <- dat %>%
+  mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+  group_by(date,hour) %>%
+  summarise(TIMESTAMP = min(TIMESTAMP),
+            DOY = mean(DOY),
+            Year = mean(Year),
+            TA = mean(TA, na.rm=T),
+            VPD = mean(VPD, na.rm=T),
+            RH = mean(RH, na.rm=T),
+            PA = mean(PA, na.rm=T),
+            P = sum(P, na.rm=T),
+            WS = mean(WS, na.rm=T),
+            PAR = mean(PAR, na.rm=T),
+            ET = sum(ET, na.rm=T),
+            GPP = sum(GPP, na.rm=T),
+            SIF_O2A = sum(SIF_O2A, na.rm=T),
+            #T_TEA = NA, #temp
+            LAI = NA, #temp
+            # TS = mean(TS, na.rm=T), #temp
+            SWC_shall = mean(SWC_shall, na.rm=T),
+            SWC_deep = mean(SWC_deep, na.rm=T),
+            WUE_GPP = sum(GPP, na.rm=T)/sum(ET, na.rm=T),
+            WUE_SIF = sum(SIF_O2A, na.rm=T)/sum(ET, na.rm=T)
+            ) %>%
+  ungroup()
+
 save(dat, file = "data_clean/sqdat.RData") # save prepped data as R file, this will be the model input
 
+##################################################### Majg
+# Load Majg data
+dat <- read.csv("./data_formatted/ES-Lm1/ES-Lm1_grass_dat.csv")
+dat$date <- as.Date(dat$TIMESTAMP, "%Y-%m-%d") # for filtering
+dat$TIMESTAMP <- ymd_hms(dat$TIMESTAMP) # for filtering
 
+
+dat <- dat %>%
+  mutate(
+    # decide what is SWC_shall and what is SWC_deep
+    SWC_shall = SWC_1,
+    SWC_deep = SWC_4,
+    SWC = rowMeans(dat[grep('SWC', names(dat))], na.rm = T),
+    TS = TS_1,
+    # define WUE to relate carbon to water fluxes
+    WUE_GPP = GPP/ET,
+    WUE_SIF = SIF_O2A/ET
+  )
+
+
+# Fill small gaps
+dat$TA <- fill_linear(dat, dat$TA)
+dat$VPD <- fill_linear(dat, dat$VPD)
+dat$PAR <- fill_linear(dat, dat$PAR)
+dat$SWC_shall <- fill_linear(dat, dat$SWC_shall)
+dat$SWC_deep <- fill_linear(dat, dat$SWC_deep)
+dat$ET <- fill_linear(dat, dat$ET)
+dat$TS <- fill_linear(dat, dat$TS)
+dat$WS <- fill_linear(dat, dat$WS)
+
+dat <- dat %>%
+  mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+  group_by(date,hour,DOY) %>%
+  summarise(TIMESTAMP = min(TIMESTAMP),
+            Year = mean(Year),
+            TA = mean(TA, na.rm=T),
+            VPD = mean(VPD, na.rm=T),
+            RH = mean(RH, na.rm=T),
+            PA = mean(PA, na.rm=T),
+            P = sum(P, na.rm=T),
+            WS = mean(WS, na.rm=T),
+            PAR = mean(PAR, na.rm=T),
+            ET = sum(ET, na.rm=T),
+            GPP = sum(GPP, na.rm=T),
+            SIF_O2A = mean(SIF_O2A, na.rm=T),
+            #T_TEA = sum(T_TEA, na.rm=T),
+            LAI = NA, #temp
+            TS = mean(TS, na.rm=T),
+            SWC_shall = mean(SWC_shall, na.rm=T),
+            SWC_deep = mean(SWC_deep, na.rm=T),
+            WUE_GPP = sum(GPP, na.rm=T)/sum(ET, na.rm=T),
+            WUE_SIF = sum(SIF_O2A, na.rm=T)/sum(ET, na.rm=T)
+  ) %>%
+  ungroup()
+
+save(dat, file = "data_clean/maggdat.RData") # save prepped data as R file, this will be the model input
+
+##################################################### Majt
+# Load Majt data
+dat <- read.csv("./data_formatted/ES-Lm1/ES-Lm1_tree_dat.csv")
+dat$date <- as.Date(dat$TIMESTAMP, "%Y-%m-%d") # for filtering
+dat$TIMESTAMP <- ymd_hms(dat$TIMESTAMP) # for filtering
+
+
+dat <- dat %>%
+  mutate(
+    # decide what is SWC_shall and what is SWC_deep
+    SWC_shall = SWC_1,
+    SWC_deep = SWC_4,
+    SWC = rowMeans(dat[grep('SWC', names(dat))], na.rm = T),
+    TS = TS_1,
+    # define WUE to relate carbon to water fluxes
+    WUE_GPP = GPP/ET,
+    WUE_SIF = SIF_O2A/ET
+  )
+
+
+# Fill small gaps
+dat$TA <- fill_linear(dat, dat$TA)
+dat$VPD <- fill_linear(dat, dat$VPD)
+dat$PAR <- fill_linear(dat, dat$PAR)
+dat$SWC_shall <- fill_linear(dat, dat$SWC_shall)
+dat$SWC_deep <- fill_linear(dat, dat$SWC_deep)
+dat$ET <- fill_linear(dat, dat$ET)
+dat$TS <- fill_linear(dat, dat$TS)
+dat$WS <- fill_linear(dat, dat$WS)
+
+
+dat <- dat %>%
+  mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+  group_by(date,hour,DOY) %>%
+  summarise(TIMESTAMP = min(TIMESTAMP),
+            Year = mean(Year),
+            TA = mean(TA, na.rm=T),
+            VPD = mean(VPD, na.rm=T),
+            RH = mean(RH, na.rm=T),
+            PA = mean(PA, na.rm=T),
+            P = sum(P, na.rm=T),
+            WS = mean(WS, na.rm=T),
+            PAR = mean(PAR, na.rm=T),
+            ET = sum(ET, na.rm=T),
+            GPP = sum(GPP, na.rm=T),
+            SIF_O2A = sum(SIF_O2A, na.rm=T),
+            #T_TEA = sum(T_TEA, na.rm=T),
+            LAI = NA, #temp
+            TS = mean(TS, na.rm=T),
+            SWC_shall = mean(SWC_shall, na.rm=T),
+            SWC_deep = mean(SWC_deep, na.rm=T),
+            WUE_GPP = sum(GPP, na.rm=T)/sum(ET, na.rm=T),
+            WUE_SIF = sum(SIF_O2A, na.rm=T)/sum(ET, na.rm=T)
+  ) %>%
+  ungroup()
+
+save(dat, file = "data_clean/magtdat.RData") # save prepped data as R file, this will be the model input
 
 
 

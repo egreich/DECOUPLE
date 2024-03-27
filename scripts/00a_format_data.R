@@ -112,8 +112,7 @@ laedatin$TIMESTAMP <-as.POSIXct(laedatin$TIMESTAMP, format = "%Y%m%d %H:%M:%S")
 
 # Combine dataframes
 laedatin1 <- left_join(laedatin, fluxlaedatin)
-laedatin2 <- left_join(laedatin1, tmp_tea, by = "TIMESTAMP") # problem with joining by timestamp, so the following lines are a workaround
-laedatin2$TIMESTAMP <- laedatin1$TIMESTAMP
+laedatin2 <- left_join(laedatin1, tmp_tea, by = "TIMESTAMP")
 laedatin <- laedatin2
 
 # Reformat
@@ -176,6 +175,17 @@ laedat$SWC_4 <- laedat$SWC_4/100
 laedat$SWC_5 <- laedat$SWC_5/100
 
 write.csv(laedat, file = "data_formatted/CH-Lae/CH-Lae_dat.csv") # save data as csv file
+
+
+# test
+# laedat %>%
+#   filter(DOY > 250) %>%
+#   ggplot(aes(x=TIMESTAMP)) +
+#   geom_line(aes(y=GPP/100, color = "GPP/100")) +
+#   geom_line(aes(y=T_TEA, color = "TEA")) +
+#   theme_bw()
+# test <- laedat %>%
+#   select(Year,DOY,TIMESTAMP,T_TEA)
 
 #################################################### Crk
 
@@ -279,7 +289,7 @@ tmp_tea <- tmp_tea %>%
   rename(T_TEA = V2)
 normtime<- utcal.nc(tunits$value, tmp_tea$time)
 tmp_tea <- cbind(tmp_tea, normtime)
-tmp_tea$minute = tmp_tea$minute - 15 # make the minutes the TIME_START minutes
+tmp_tea$minute = tmp_tea$minute - 15 # make the minutes the TIME_START minutes, error in netcdf units
 tmp_tea$TIMESTAMP <- ymd_hms(paste(tmp_tea$year,tmp_tea$month,tmp_tea$day,tmp_tea$hour,tmp_tea$minute,tmp_tea$second))
 
 
@@ -336,7 +346,6 @@ gebdatin$TIMESTAMP <-as.POSIXct(gebdatin$TIMESTAMP, format = "%Y%m%d %H:%M:%S")
 # Combine dataframes
 gebdatin1 <- left_join(gebdatin, fluxgebdatin)
 gebdatin2 <- left_join(gebdatin1, tmp_tea)
-gebdatin2$TIMESTAMP <- gebdatin1$TIMESTAMP
 gebdatin <- gebdatin2
 
 gebdat <- data.frame(
@@ -401,6 +410,16 @@ gebdat$SWC_4 <- gebdat$SWC_4/100
 gebdat$SWC_5 <- gebdat$SWC_5/100
 
 write.csv(gebdat, file = "data_formatted/DE-geb/DE-Geb_dat.csv") # save data as csv file
+
+# # test
+# gebdat %>%
+#   filter(DOY > 150) %>%
+#   ggplot(aes(x=TIMESTAMP)) +
+#   geom_line(aes(y=GPP/100, color = "GPP/100")) +
+#   geom_line(aes(y=T_TEA, color = "TEA")) +
+#   theme_bw()
+# test <- gebdat %>%
+#   select(Year,DOY,TIMESTAMP,T_TEA)
 
 #################################################### Leinefelde
 
@@ -713,7 +732,6 @@ yatdatin_full$TIMESTAMP <-as.POSIXct(yatdatin_full$TIMESTAMP, format = "%Y%m%d %
 # Combine dataframes
 yatdatin_full1 <- left_join(yatdatin_full, fluxyatdatin)
 yatdatin_full2 <- left_join(yatdatin_full1, tmp_tea, by = "TIMESTAMP")
-yatdatin_full2$TIMESTAMP <- yatdatin_full1$TIMESTAMP
 yatdatin_full <- yatdatin_full2
 
 yatdat_full <- data.frame(
@@ -823,7 +841,13 @@ jrsdat <- data.frame(
   PA = as.numeric(jrsdatin$air_pressure)/100, # convert Pa to kPa
   P = as.numeric(jrsdatin$P_RAIN_1_1_1)*1000,
   WS = jrsdatin$wind_speed,
-  #PAR = jrsdatin,
+  PAR = (as.numeric(jrsdatin$PPFD_1_1_1)+
+             as.numeric(jrsdatin$PPFD_1_1_2)+
+             as.numeric(jrsdatin$PPFD_1_1_3)+
+             as.numeric(jrsdatin$PPFD_1_1_4)+
+             as.numeric(jrsdatin$PPFD_1_1_5)+
+             as.numeric(jrsdatin$PPFD_1_6_1)+
+             as.numeric(jrsdatin$PPFD_1_7_1))/7,
   SW_OUT = jrsdatin$SWOUT_1_1_1,
   LW_OUT = jrsdatin$LWOUT_1_1_1,
   LE = jrsdatin$LE,
@@ -874,6 +898,10 @@ write.csv(jrsdat, file = "data_formatted/Jrs/Jrs_dat.csv") # save data as csv fi
 
 ##################################################### Sq
 
+# temp
+test <- readMat("/Users/megreich/Documents/Emma/NAU/Secondment/Qian_files/Original_data/sq/2017/d17.mat")
+test <-  as.data.frame(test[["d17"]])
+
 # Load sq data
 sqdatin17 <- read.csv("./data_raw/Sq/Sq_2017_dat.csv")
 sqdatin17 <- sqdatin17%>%
@@ -906,7 +934,7 @@ sqdat <- data.frame(
   SW_OUT = sqdatin$SWOUT_1_1_1,
   LW_OUT = sqdatin$LWOUT_1_1_1,
   LE = sqdatin$LE,
-  ET = sqdatin$ET,
+  ET = sqdatin$ET, #convert.LE.to.ET(scale = "halfhour", yatdatin_full$TA_1_1_1, yatdatin_full$LE),
   H = sqdatin$H,
   NEE = sqdatin$NEE,
   GPP = sqdatin$GPP,
@@ -977,8 +1005,15 @@ fluxmajdatin <- fluxmajdatin %>%
 fluxmajdatin$TIMESTAMP <-as.POSIXct(as.character(fluxmajdatin$TIMESTAMP_START), format = "%Y%m%d%H%M", tz = "CET", 
                                     origin = "2018-01-01")
 
+# TEA
+teamajdatin <- read.csv("./data_raw/ES-Lm1/CT_Flux_Meteo_BL.csv")
+teamajdatin$TIMESTAMP <-as.POSIXct(as.character(teamajdatin$DateTime), format = "%Y-%m-%d %H:%M:%S", tz = "CET", 
+                                    origin = "2014-03-20")
+
+
 # Combine dataframes
 majdatin <- left_join(majdatin, fluxmajdatin, by = "TIMESTAMP")
+majdatin <- left_join(majdatin, teamajdatin, by = "TIMESTAMP")
 
 
 # Reformat
@@ -1021,11 +1056,12 @@ majdat <- data.frame(
   PRI = majdatin$PRI,
   Ref_750 = majdatin$Reflectance.750....,
   Ref_760 = majdatin$Reflectance.760....,
-  Gs = majdatin$Gs_mol
-  #T_TEA = majdatin$T_TEA
+  Gs = majdatin$Gs_mol,
+  T_TEA = majdatin$TEA_T,
+  filter_flag = majdatin$sif_filter_flag
 )
 
-majdat[,4:ncol(majdat)] <- sapply(majdat[,4:ncol(majdat)], as.numeric)
+majdat[,4:(ncol(majdat)-1)] <- sapply(majdat[,4:ncol(majdat)], as.numeric) # -1 to account for flag filter at end
 
 majdat[majdat==-9999] <- NA # replace -9999 with NAs
 
@@ -1034,13 +1070,90 @@ majdat$SWC_1 <- majdat$SWC_1/100
 majdat$SWC_2 <- majdat$SWC_2/100
 majdat$SWC_3 <- majdat$SWC_3/100
 majdat$SWC_4 <- majdat$SWC_4/100
-majdat$SWC_5 <- majdat$SWC_5/100
 
-write.csv(majdat, file = "data_formatted/ES-Lm1/ES-Lm1_dat.csv") # save data as csv file
+# separate grass and tree measurements
+majgdat <- majdat %>% # grass
+  filter(filter_flag == "1_grass") %>%
+  select(-filter_flag)
+
+majtdat <- majdat %>% # tree
+  filter(filter_flag == "1_tree")%>%
+  select(-filter_flag)
+
+write.csv(majgdat, file = "data_formatted/ES-Lm1/ES-Lm1_grass_dat.csv") # save data as csv file
+write.csv(majtdat, file = "data_formatted/ES-Lm1/ES-Lm1_tree_dat.csv") # save data as csv file
 
 
+##################################################### US Sites
+##################################################### Niwot
 
+# SIF data
+sifdatin <- read.csv("./data_raw/US-NR1/niwot_hourly_PNAS_PhotoSpec_v1.2.csv")
+sifdatin$TIMESTAMP <-as.POSIXct(sifdatin$DateTime, format = "%Y-%m-%d %H:%M:%S")
 
+# FLUXNET Data
+options(scipen=999) # turn off scientific notation for dates
+fluxdatin <- read.csv("./data_raw/US-NR1/AMF_US-NR1_FLUXNET_SUBSET_HH_1998-2016_3-5.csv")
+fluxdatin$TIMESTAMP <-as.POSIXct(as.character(fluxdatin$TIMESTAMP_START), format = "%Y%m%d%H%M")
+
+# Combine dataframes
+datin <- left_join(sifdatin, fluxdatin, by = "TIMESTAMP")
+
+datin <- datin[-1,] # get rid of unit row, as these are recorded in the README
+
+# Reformat
+dat <- data.frame(
+  Year = format(as.Date(datin$TIMESTAMP, format="%Y"),"%Y"),
+  DOY = difftime(datin$TIMESTAMP,as.POSIXct(as.Date("2017-01-01 00:00")),units='days'),
+  TIMESTAMP = datin$TIMESTAMP,
+  TA = datin$Air.Temperature,
+  SW_IN = datin$SW_IN_F,
+  LW_IN = datin$LW_IN_F,
+  LW_OUT = datin$LW_OUT,
+  VPD = datin$VPD_F,
+  RH = datin$RH,
+  PA = datin$PA_F,
+  P = as.numeric(datin$P_F),
+  WS = datin$WS_F,
+  PAR = datin$PA,
+  APAR = datin$APAR_li_moreau_mW_m2_nm1_sr,
+  SW_OUT = datin$SW_out,
+  LW_OUT = datin$LW_out,
+  LE = datin$LE_f,
+  ET = convert.LE.to.ET(scale = "hour", datin$Tair_f, datin$LE_f),
+  H = datin$H_f,
+  NEE = datin$NEE_uStar_f,
+  GPP = datin$GPP_MR_f,
+  SWC_1 = datin$SWC_F_MDS_1,
+  SWC_2 = datin$SWC_F_MDS_2,
+  SWC_3 = datin$SWC_F_MDS_3,
+  SWC_4 = datin$SWC_F_MDS_4,
+  TS_1 = datin$TS_F_MDS_1,
+  TS_2 = datin$TS_F_MDS_2,
+  TS_3 = datin$TS_F_MDS_3,
+  TS_4 = datin$TS_F_MDS_4,
+  TS_5 = datin$TS_F_MDS_5,
+  TS_6 = datin$TS_F_MDS_6,
+  TS_7 = datin$TS_F_MDS_7,
+  SIF_O2A = datin$SIF_A_sfm..mW.m.2nm.1sr.1.,
+  SIF_O2B = datin$SIF_B_sfm..mW.m.2nm.1sr.1.,
+  NDVI = datin$NDVI,
+  PRI = datin$PRI,
+  Gs = datin$Gs_mol,
+  T_TEA = datin$T_TEA,
+  filter_flag = datin$sif_filter_flag
+)
+
+dat[,4:(ncol(dat))] <- sapply(dat[,4:ncol(dat)], as.numeric)
+
+dat[dat==-9999] <- NA # replace -9999 with NAs
+
+# Create a column of all dates
+hh<- data.frame(TIMESTAMP=seq(as.POSIXct("2017-06-17 07:00:00","%Y-%m-%d %H:%M:%S"), as.POSIXct("2018-05-30 19:00:00","%Y-%m-%d %H:%M:%S"), by="hour"))
+dat <- merge(dat, hh,by = "TIMESTAMP",all.x=T,all.y=T)
+
+nr1dat <- dat
+write.csv(nr1dat, file = "data_formatted/US-NR1/US-NR1_dat.csv") # save data as csv file
 
 
 

@@ -44,6 +44,254 @@ fill_small <- function(site, column_to_fill){
 }
 
 
+# Function to linear interpolate a variable if there is no P
+# Linear interpolating, except when P is > 0 over the gap-period
+fill_linear <- function(site, S){
+  S_list <- S
+  last_P <- NA
+  prev_S <- NA
+  step1 <- NA
+  step2 <- NA
+  step3 <- NA
+  step4 <- NA
+  step5 <- NA
+  step6 <- NA
+  step7 <- NA
+  step8 <- NA
+  step9 <- NA
+  step10 <- NA
+  step11 <- NA
+  step12 <- NA
+  step13 <- NA
+  step14 <- NA
+  step15 <- NA
+  step16 <- NA
+  step17 <- NA
+  step18 <- NA
+  step19 <- NA
+  step20 <- NA
+  step21 <- NA
+  step22 <- NA
+  step1P <- NA
+  step2P <- NA
+  step3P <- NA
+  step4P <- NA
+  step5P <- NA
+  step6P <- NA
+  step7P <- NA
+  step8P <- NA
+  step9P <- NA
+  step10P <- NA
+  step11P <- NA
+  step12P <- NA
+  step13P <- NA
+  step14P <- NA
+  step15P <- NA
+  step16P <- NA
+  step17P <- NA
+  step18P <- NA
+  step19P <- NA
+  step20P <- NA
+  step21P <- NA
+  step22P <- NA
+  
+  for (i in 1:nrow(site)){
+    
+    if(is.na(site$P[i])){ # if precip is NA, set to 1 to just ignore those blocks
+      site$P[i]=1
+    }
+    
+    if(i<10) next # skip 1st 10 iterations and go to next iteration
+    
+    last_P <- i-7
+    prev_S <- i-1
+    step1 <- i+1
+    step2 <- i+2
+    step3 <- i+3
+    step4 <- i+4
+    step5 <- i+5
+    step6 <- i+6
+    step7 <- i+7
+    step8 <- i+8
+    step9 <- i+9
+    step10 <- i+10
+    step11 <- i+11
+    step12 <- i+12
+    step13 <- i+13
+    step14 <- i+14
+    step15 <- i+15
+    step16 <- i+16
+    step17 <- i+17
+    step18 <- i+18
+    step19 <- i+19
+    step20 <- i+20
+    step21 <- i+21
+    step22 <- i+22
+    
+    step1P <- i+1-7
+    step2P <- i+2-7
+    step3P <- i+3-7
+    step4P <- i+4-7
+    step5P <- i+5-7
+    step6P <- i+6-7
+    step7P <- i+7-7
+    step8P <- i+8-7
+    step9P <- i+9-7
+    step10P <- i+10-7
+    step11P <- i+11-7
+    step12P <- i+12-7
+    step13P <- i+13-7
+    step14P <- i+14-7
+    step15P <- i+15-7
+    step16P <- i+16-7
+    step17P <- i+17-7
+    step18P <- i+18-7
+    step19P <- i+19-7
+    step20P <- i+20-7
+    step21P <- i+21-7
+    step22P <- i+22-7
+    
+    
+    if(!is.na(S_list[prev_S])){
+      if (is.na(S_list[i])){
+        if (site$P[i] == 0){
+          if(!is.na(S_list[step1])){
+            if(mean(site$P[i:step1], na.rm=T) == 0){
+              S_list[i] = seq(S_list[prev_S], S_list[step1], length.out=3)[2]
+            } else{
+              S_list[i] = S_list[i]}
+          } else if(!is.na(S_list[step2])){
+            if(mean(site$P[i:step2], na.rm=T) == 0){
+              S_list[i:step1] = seq(S_list[prev_S], S_list[step2], length.out=4)[2:3]
+            } else{
+              S_list[i:step1] = S_list[i:step1]}
+          } else if(!is.na(S_list[step3])){
+            if(mean(site$P[i:step3], na.rm=T) == 0){
+              S_list[i:step2] = seq(S_list[prev_S], S_list[step3], length.out=5)[2:4]
+            } else{
+              S_list[i:step2] = S_list[i:step2]}
+          } else if(!is.na(S_list[step4])){
+            if(mean(site$P[i:step4], na.rm=T) == 0){
+              S_list[i:step3] = seq(S_list[prev_S], S_list[step4], length.out=6)[2:5]
+            } else{
+              S_list[i:step3] = S_list[i:step3]}
+          } else if(!is.na(S_list[step5])){
+            if(mean(site$P[i:step5], na.rm=T) == 0){
+              S_list[i:step4] = seq(S_list[prev_S], S_list[step5], length.out=7)[2:6]
+            } else{
+              S_list[i:step4] = S_list[i:step4]}
+          } else if(!is.na(S_list[step6])){
+            if(mean(site$P[i:step6], na.rm=T) == 0){
+              S_list[i:step5] = seq(S_list[prev_S], S_list[step6], length.out=8)[2:7]
+            } else{
+              S_list[i:step5] = S_list[i:step5]}
+          } else if(!is.na(S_list[step7])){
+            if(mean(site$P[i:step7], na.rm=T) == 0){
+              S_list[i:step6] = seq(S_list[prev_S], S_list[step7], length.out=9)[2:8]
+            } else{
+              S_list[i:step6] = S_list[i:step6]}
+          } else if(!is.na(S_list[step8])){
+            if(mean(site$P[i:step8], na.rm=T) == 0){
+              S_list[i:step7] = seq(S_list[prev_S], S_list[step8], length.out=10)[2:9]
+            } else{
+              S_list[i:step7] = S_list[i:step7]}
+          } else if(!is.na(S_list[step9])){
+            if(mean(site$P[i:step9], na.rm=T) == 0){
+              S_list[i:step8] = seq(S_list[prev_S], S_list[step9], length.out=11)[2:10]
+            } else{
+              S_list[i:step8] = S_list[i:step8]}
+          } else if(!is.na(S_list[step10])){
+            if(mean(site$P[i:step10], na.rm=T) == 0){
+              S_list[i:step9] = seq(S_list[prev_S], S_list[step10], length.out=12)[2:11]
+            } else{
+              S_list[i:step9] = S_list[i:step9]}
+          } else if(!is.na(S_list[step11])){
+            if(mean(site$P[i:step11], na.rm=T) == 0){
+              S_list[i:step10] = seq(S_list[prev_S], S_list[step11], length.out=13)[2:12]
+            } else{
+              S_list[i:step10] = S_list[i:step10]}
+          } else if(!is.na(S_list[step12])){
+            if(mean(site$P[i:step12], na.rm=T) == 0){
+              S_list[i:step11] = seq(S_list[prev_S], S_list[step12], length.out=14)[2:13]
+            } else{
+              S_list[i:step11] = S_list[i:step11]}
+          } else if(!is.na(S_list[step13])){
+            if(mean(site$P[i:step13], na.rm=T) == 0){
+              S_list[i:step12] = seq(S_list[prev_S], S_list[step13], length.out=15)[2:14]
+            } else{
+              S_list[i:step12] = S_list[i:step12]}
+          } else if(!is.na(S_list[step14])){
+            if(mean(site$P[i:step14], na.rm=T) == 0){
+              S_list[i:step13] = seq(S_list[prev_S], S_list[step14], length.out=16)[2:15]
+            } else{
+              S_list[i:step13] = S_list[i:step13]}
+          } else if(!is.na(S_list[step15])){
+            if(mean(site$P[i:step15], na.rm=T) == 0){
+              S_list[i:step14] = seq(S_list[prev_S], S_list[step15], length.out=17)[2:16]
+            } else{
+              S_list[i:step14] = S_list[i:step14]}
+          } else if(!is.na(S_list[step16])){
+            if(mean(site$P[i:step16], na.rm=T) == 0){
+              S_list[i:step15] = seq(S_list[prev_S], S_list[step16], length.out=18)[2:17]
+            } else{
+              S_list[i:step15] = S_list[i:step15]}
+          } else if(!is.na(S_list[step17])){
+            if(mean(site$P[i:step17], na.rm=T) == 0){
+              S_list[i:step16] = seq(S_list[prev_S], S_list[step17], length.out=19)[2:18]
+            } else{
+              S_list[i:step16] = S_list[i:step16]}
+          } else if(!is.na(S_list[step18])){
+            if(mean(site$P[i:step18], na.rm=T) == 0){
+              S_list[i:step17] = seq(S_list[prev_S], S_list[step18], length.out=20)[2:19]
+            } else{
+              S_list[i:step17] = S_list[i:step17]}
+          } else if(!is.na(S_list[step19])){
+            if(mean(site$P[i:step19], na.rm=T) == 0){
+              S_list[i:step18] = seq(S_list[prev_S], S_list[step19], length.out=21)[2:20]
+            } else{
+              S_list[i:step18] = S_list[i:step18]}
+          } else if(!is.na(S_list[step20])){
+            if(mean(site$P[i:step20], na.rm=T) == 0){
+              S_list[i:step19] = seq(S_list[prev_S], S_list[step20], length.out=22)[2:21]
+            } else{
+              S_list[i:step19] = S_list[i:step19]}
+          } else if(!is.na(S_list[step21])){
+            if(mean(site$P[i:step21], na.rm=T) == 0){
+              S_list[i:step20] = seq(S_list[prev_S], S_list[step21], length.out=23)[2:22]
+            } else{
+              S_list[i:step20] = S_list[i:step20]}
+          } else if(!is.na(S_list[step22])){
+            if(mean(site$P[i:step22], na.rm=T) == 0){
+              S_list[i:step21] =  seq(S_list[prev_S], S_list[step22], length.out=24)[2:23]
+            } else{
+              S_list[i:step21] = S_list[i:step21]}
+          }
+        }else {
+          S_list[i] = S_list[i]
+        }
+      }
+    }
+    
+    
+    if(!is.na(S_list[prev_S])){
+      if (is.na(S_list[i])){
+        if (mean(site$P[i], na.rm=T) == 0){
+          S_list[i] <- S_list[prev_S]
+        }else {
+          S_list[i] = S_list[i]
+        }
+      }
+    }
+    
+    
+    
+  }
+  
+  S_GF <- S_list
+  return(S_GF)
+}
+
+
 # Function to calculate evaporation, based on descriptions of methods in Merlin et al. 2016
 # To run the get_evap function we need columns of:
 # PA, TA, TS, WS, RH, SWC_shall
@@ -200,7 +448,7 @@ dumsum <- function(jagsobj, type){
   # Create a "not in" function using negate from the purrr package
   `%nin%` <- purrr::negate(`%in%`)
   
-  if(type %nin% c("rjags", "jagUI")){
+  if(type %nin% c("rjags", "jagsUI")){
     paste("Please indicate whether this is a rjags or jagsUI samples object")
   }
   
@@ -240,9 +488,16 @@ dumsum <- function(jagsobj, type){
     df_sum <- df_sum %>%
       mutate(var = sub('(.*)\\[.*', '\\1', df_sum$var)) # get rid of numbers in var col
     
-    df_mod <- df_sum %>%
-      select("var",starts_with("ID"),"mean","median","pc2.5","pc97.5") %>% #reorder columns, drop ID
-      mutate(overlap0 = do.call(c, jagsui$overlap0), gel = do.call(c, jagsui$Rhat))
+    if(is.null(jagsui$overlap0)){
+      paste("Warning: jagsUI did not calculate statistics")
+      df_mod <- df_sum %>%
+        select("var",starts_with("ID"),"mean","median","pc2.5","pc97.5") %>% #reorder columns, drop ID
+        mutate(overlap0 = NA, gel = NA)
+    }else{
+      df_mod <- df_sum %>%
+        select("var",starts_with("ID"),"mean","median","pc2.5","pc97.5") %>% #reorder columns, drop ID
+        mutate(overlap0 = do.call(c, jagsui$overlap0), gel = do.call(c, jagsui$Rhat))
+    }
     
     df_mod[,2:(counter+1)] <- lapply(2:(counter+1), function(x) as.numeric(df_mod[[x]])) # make appropraite columns numeric
     

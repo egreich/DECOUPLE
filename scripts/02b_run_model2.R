@@ -20,9 +20,9 @@ JAGS.seed<-ceiling(runif(1,1,10000000))
 # to test the function
 test=F
 if(test==T){
-  varname <- 5
-  sitename <- 1
-  scale <- 1
+  varname <- 4
+  sitename <- 9
+  scale <- 2
 }
 
 # key for which response variable corresponds to which index
@@ -53,6 +53,12 @@ if(sitename == 1){
 } else if(sitename == 7){
   sitename = "sq"
   load("./data_clean/sqdat.RData")
+} else if(sitename == 8){
+  sitename = "lm1g"
+  load("data_clean/maggdat.RData")
+} else if(sitename == 9){
+  sitename = "lm1t"
+  load("./data_clean/magtdat.RData")
 }
 
 if(scale == 1){
@@ -91,21 +97,21 @@ source("./scripts/functions.R")
 source("./scripts/run_mod2_function.R")
 
 # Aggregate according to scale
-if(scale == "hour"){ # aggregate by hour
-  dat <- dat %>%
-    select(-X) %>%
-    mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
-    group_by(DOY,hour) %>%
-    summarise(across(everything(), mean, na.rm = T)) %>%
-    ungroup()
-}
-if(scale == "daily"){ # aggregate by day
-  dat <- dat %>%
-    select(-X) %>%
-    mutate(DOY = floor(DOY), TIMESTAMP = as.Date(TIMESTAMP, format= "%Y-%m-%d")) %>%
-    group_by(DOY)  %>%
-    summarise(across(everything(), mean, na.rm = T))
-}
+# if(scale == "hour"){ # aggregate by hour
+#   dat <- dat %>%
+#     select(-X) %>%
+#     mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+#     group_by(DOY,hour) %>%
+#     summarise(across(everything(), mean, na.rm = T)) %>%
+#     ungroup()
+# }
+# if(scale == "daily"){ # aggregate by day
+#   dat <- dat %>%
+#     select(-X) %>%
+#     mutate(DOY = floor(DOY), TIMESTAMP = as.Date(TIMESTAMP, format= "%Y-%m-%d")) %>%
+#     group_by(DOY)  %>%
+#     summarise(across(everything(), mean, na.rm = T))
+# }
 
 # Load site metadata for variables needed for process-based evaporation model
 df_soil <- read.csv("./data_misc/soildata.csv")
@@ -129,7 +135,7 @@ conv.fact.time <- ifelse(scale=="day", 86400, conv.fact.time) # if we need to co
 dat <- get_evap(dat, Z = Z, h = h, fc = fc, fclay = fclay, fsand = fsand, conv.fact.time = conv.fact.time)
 
 lowdev = F
-newinits = T
+newinits = F
 
 # # temp
 # if(sitename %in% c("lae")){

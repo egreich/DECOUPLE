@@ -96,7 +96,6 @@ run_mod2 <- function(dataIN, varname, sitename, scale, Z, h, fc, fclay, fsand, n
     }
   }
   
-  
   # ntimestep = 6 # look at C1 and C2 to see the timesteps
   # for(i in c(1:nrow(dataIN))){
   #   if(i < (ntimestep+2)){
@@ -153,12 +152,12 @@ run_mod2 <- function(dataIN, varname, sitename, scale, Z, h, fc, fclay, fsand, n
   
   # jIND file provides indices to calculate interactions between covariates
   # Basically a matrix version of X2, defined in the first initialization later in the script
-  # key: 1 VPD # 2 Tair # 3 Sshall # 4 Sdeep # 5 PAR # 6 LW_OUT
+  # key: 1 VPD # 2 Tair # 3 Sshall # 4 Sdeep # 5 PAR
   # X1a = cbind(X1[,1]^2, X1[,2]^2)
-  # X2 = X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,4], X1[,2]*X1[,3], X1[,2]*X1[,4], X1[,3]*X1[,4], X1[,5]*X1[,1], X1[,5]*X1[,2], X1[,5]*X1[,3], X1[,5]*X1[,4]
-  jIND <- data.frame(j = c(1:15),
-                     ID1 = c(1,1,1,2,2,3,5,5,5,5,6,6,6,6,6),
-                     ID2 = c(2,3,4,3,4,4,1,2,3,4,1,2,3,4,5))
+  # X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,4], X1[,2]*X1[,4], X1[,5]*X1[,1], X1[,5]*X1[,2], X1[,5]*X1[,4])
+  jIND <- data.frame(j = c(1:6),
+                     ID1 = c(1,1,2,5,5,5),
+                     ID2 = c(2,4,4,1,2,4))
   
   # Choose the starting index. This is an index for a row in the Y data file. 
   # The value in the indexed row should be greater than 1 to accommodate 
@@ -184,6 +183,7 @@ run_mod2 <- function(dataIN, varname, sitename, scale, Z, h, fc, fclay, fsand, n
   
   conv.fact.time <- ifelse(scale=="hour", 3600, 1800) # if we need to convert seconds to hours or half hours
   conv.fact.time <- ifelse(scale=="day", 86400, conv.fact.time) # if we need to convert seconds to days
+  
   
   # Prepare data for JAGS -- covariates are scaled
   data = list(
@@ -224,7 +224,7 @@ run_mod2 <- function(dataIN, varname, sitename, scale, Z, h, fc, fclay, fsand, n
               Nstart = Nstart,
               Nend = Nend,
               Nlag = 7,
-              Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
+              Nparms = 5, # Nparms is the number of driving variables included to calculate main effects
               Yday = Yday, # Choose column in YIN that provides indices linking response variables with covariates
               ID1 = jIND[,2], 
               ID2 = jIND[,3],
@@ -234,7 +234,6 @@ run_mod2 <- function(dataIN, varname, sitename, scale, Z, h, fc, fclay, fsand, n
               Sshall = as.vector(scale(as.numeric(dataIN$SWC_shall),center=TRUE,scale=TRUE)),
               Sdeep = as.vector(scale(as.numeric(dataIN$SWC_deep),center=TRUE,scale=TRUE)),
               PAR = as.vector(scale(as.numeric(dataIN$PAR),center=TRUE,scale=TRUE)),
-              LW_OUT = as.vector(scale(as.numeric(dataIN$LW_OUT),center=TRUE,scale=TRUE)),
               # covariate timesteps into the past
               # this code is flexible in case we want to combine timesteps,
               # or average over multiple timesteps
@@ -255,8 +254,7 @@ run_mod2 <- function(dataIN, varname, sitename, scale, Z, h, fc, fclay, fsand, n
               data$Tair[Yday[Nstart:Nend]], #2
               data$Sshall[Yday[Nstart:Nend]], #3
               data$Sdeep[Yday[Nstart:Nend]], #4
-              data$PAR[Yday[Nstart:Nend]], #5
-             data$LW_OUT[Yday[Nstart:Nend]] #6
+              data$PAR[Yday[Nstart:Nend]] #5
   ) 
   
   # Notes: The code below is indexed numerically, which you will have to pay attention to as you change covariates of interest
@@ -264,25 +262,24 @@ run_mod2 <- function(dataIN, varname, sitename, scale, Z, h, fc, fclay, fsand, n
   X1a = cbind(X1[,1]^2, X1[,2]^2) 
   # Put all covariates together;
   # Interactions incorporated into linear model used to estimate initial values
-  X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,4], X1[,2]*X1[,3], X1[,2]*X1[,4], 
-              X1[,3]*X1[,4], X1[,5]*X1[,1], X1[,5]*X1[,2], X1[,5]*X1[,3], X1[,5]*X1[,4],
-              X1[,6]*X1[,1], X1[,6]*X1[,2], X1[,6]*X1[,3], X1[,6]*X1[,4], X1[,6]*X1[,5])
+  X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,4], X1[,2]*X1[,4], 
+              X1[,5]*X1[,1], X1[,5]*X1[,2], X1[,5]*X1[,4])
   # Fit simple linear model
   WUE.Y <- YIN$GPP/YIN$ET
   WUE.Y <- ifelse(is.infinite(WUE.Y), NA, WUE.Y) # if WUE is infinite, ignore it
   fit <- lm(WUE.Y ~ X1[,1] + X1[,2] + X1[,3] + X1[,4] + X1[,5] + # main effects
               X1a[,1] + X1a[,2] + # squared
-              X2[,1] + X2[,2] + X2[,3] + X2[,4] + X2[,5] + X2[,6] + X2[,7] + X2[,8] + X2[,9] + X2[,10] + X2[,11] + X2[,12] + X2[,13] + X2[,14] + X2[,15]) # interactions
+              X2[,1] + X2[,2] + X2[,3] + X2[,4] + X2[,5] + X2[,6]) # interactions
   # Extract coefficient estimates:
   beta0  = fit$coefficients[1] # the intercept
-  beta1  = fit$coefficients[2:7] # main effects
-  beta1a = fit$coefficients[8:9] # squared effects
-  beta2 = fit$coefficients[10:24] # interactive effects
+  beta1  = fit$coefficients[2:6] # main effects
+  beta1a = fit$coefficients[7:8] # squared effects
+  beta2 = fit$coefficients[9:14] # interactive effects
   
   # Create initials based on the above estimates:
-  inits = list(list(beta0 = beta0, beta1 = beta1, beta1a = beta1a, beta2 = beta2, tau.Y = tau.Y), #pink
-               list(beta0 = beta0/10, beta1 = beta1/10, beta1a = beta1a/10, beta2 = beta2/10, tau.Y =  tau.Y/3), #green
-               list(beta0 = beta0*10, beta1 = beta1*10, beta1a = beta1a*10, beta2 = beta2*10, tau.Y =  tau.Y*3)) #blue
+  inits = list(list(beta0 = beta0, beta1 = beta1, beta1a = beta1a, beta2 = beta2, tau.Y = 50), #pink
+               list(beta0 = beta0/10, beta1 = beta1/10, beta1a = beta1a/10, beta2 = beta2/10, tau.Y = 50), #green
+               list(beta0 = beta0*10, beta1 = beta1*10, beta1a = beta1a*10, beta2 = beta2*10, tau.Y = 50)) #blue
   
   # Initial values: from saved state (if we already ran the model, we want to start where we left off)
   if(newinits==F){
@@ -297,12 +294,29 @@ run_mod2 <- function(dataIN, varname, sitename, scale, Z, h, fc, fclay, fsand, n
       
       initslist <- saved_state[[2]]
       
+      # temp
+      if(length(saved_state[[2]][[1]][["beta2"]])>6){
+        inits2 <- saved_state[[2]]
+        inits2[[1]][["beta2"]] <- inits2[[1]][["beta2"]][1:6]
+        inits2[[2]][["beta2"]] <- inits2[[2]][["beta2"]][1:6]
+        inits2[[3]][["beta2"]] <- inits2[[3]][["beta2"]][1:6]
+        
+        initslist <- inits2
+      }
+      
     }else if(!file.exists(initfilename)){
       initslist <- inits
     }
   }else if(newinits==T){
     initslist <- inits
   }
+  
+  #temp
+  # if(sitename=="yat"){
+  #   load(paste("./output_model2/inits/", "crk", "/inits_", varname, "_",scale, ".RData", sep = ""))
+  #   initslist <- saved_state[[2]]
+  # }
+  
   
   #####################################################################
   # Part 2: Run JAGS Model (jagsui initializes and runs in one step)
@@ -311,10 +325,11 @@ run_mod2 <- function(dataIN, varname, sitename, scale, Z, h, fc, fclay, fsand, n
   params = c("deviance", # deviance
              "WUE.pred", "T.ratio", "T.pred", "ET.pred", # variables associated with DEPART
              "beta0","beta1","beta1a","beta2", # intercept, main effects, squared effects, interactive effects
+             "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp", # for p-values
              "dYdX", # net sensitivities
              "tau.Y", # variance of Y
              "wV","wT","wSs","wSd","wPAR", # importance weights
-             "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp") # model fit
+             "R2", "Dsum") # model fit
   
   if(post_only==F){ # if we want to run the model
     

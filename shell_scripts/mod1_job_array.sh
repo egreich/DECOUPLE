@@ -3,13 +3,11 @@
 ##SBATCH --workdir
 #SBATCH --output=/scratch/egr65/DECOUPLE/log/Mod1_%d_%A_%a.log
 #SBATCH --cpus-per-task=3
-#SBATCH --time=20:00:00
-#SBATCH --mem=30000
+#SBATCH --time=30:00:00
+#SBATCH --mem=40000
 #SBATCH --mail-type=all
 #SBATCH --mail-user=egr65@nau.edu
-#SBATCH --array=57-112
-##SBATCH --array=1-112
-##SBATCH --array=1-56
+#SBATCH --array=1-13,17-29,33-40,49-53,57-61,65-69
 
 ### %A is monsoon job number %a is interior array index
 

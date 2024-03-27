@@ -51,7 +51,6 @@ model{
     X[3,i] <- Sshall_ant[i]
     X[4,i] <- Sdeep_ant[i]
     X[5,i] <- PAR_ant[i]
-    X[6,i] <- LW_ant[i]
     
     # Computed antecedent values. 
     VPDant[i]     <- sum(VPDtemp[i,]) # summing over all lagged j's
@@ -59,14 +58,13 @@ model{
     Sshall_ant[i] <- sum(Sshalltemp[i,])
     Sdeep_ant[i] <- sum(Sdeeptemp[i,])
     PAR_ant[i] <- sum(PARtemp[i,])
-    LW_ant[i] <- sum(LWtemp[i,])
     
     for(j in 1:Nlag){ # covariates into the past
       VPDtemp[i,j] <- wV[j]*V_temp[i,j]
       V_temp[i,j] <- mean(VPD[(Yday[i]-C1[j]):(Yday[i]-C2[j])]) # mean VPD during that block period
       
       Tairtemp[i,j] <- wT[j]*T_temp[i,j]
-      T_temp[i,j] <- mean(Tair[(Yday[i]-T1[j]):(Yday[i]-T2[j])])
+      T_temp[i,j] <- max(Tair[(Yday[i]-T1[j]):(Yday[i]-T2[j])]) # max temperature during that block period
       
       Sshalltemp[i,j] <- wSs[j]*Ss_temp[i,j]
       Ss_temp[i,j] <- mean(Sshall[(Yday[i]-T1[j]):(Yday[i]-T2[j])])
@@ -76,22 +74,18 @@ model{
       
       PARtemp[i,j] <- wT[j]*PAR_temp[i,j]
       PAR_temp[i,j] <- mean(PAR[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
-      
-      LWtemp[i,j] <- wT[j]*LW_temp[i,j]
-      LW_temp[i,j] <- mean(LW_OUT[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
     }
     
     # Calculate net sensitivities (derivative) -- derived quantities
     # key:
     # 1 VPD # 2 Tair # 3 Sshall # 4 Sdeep # 5 PAR
     # X1a = cbind(X1[,1]^2, X1[,2]^2)
-    # X2 = X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,4], X1[,2]*X1[,3], X1[,2]*X1[,4], X1[,3]*X1[,4], X1[,5]*X1[,1], X1[,5]*X1[,2], X1[,5]*X1[,3], X1[,5]*X1[,4]
-    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPDant[i] + beta2[1]*TAant[i] + beta2[2]*Sshall_ant[i] + beta2[3]*Sdeep_ant[i] + beta2[7]*PAR_ant[i]
-    dYdT[i]   <- beta1[2] + 2*beta1a[2]*TAant[i] + beta2[1]*VPDant[i] + beta2[4]*Sshall_ant[i] + beta2[5]*Sdeep_ant[i] + beta2[8]*PAR_ant[i]
-    dYdSs[i]  <- beta1[3] + beta2[2]*VPDant[i] + beta2[4]*TAant[i] + beta2[6]*Sdeep_ant[i] + beta2[9]*PAR_ant[i]
-    dYdSd[i]  <- beta1[4] + beta2[3]*VPDant[i] + beta2[5]*TAant[i] + beta2[6]*Sshall_ant[i] + beta2[10]*PAR_ant[i]
-    dYdPAR[i]  <- beta1[5] + beta2[7]*VPDant[i] + beta2[8]*TAant[i] + beta2[9]*Sshall_ant[i] + beta2[10]*Sshall_ant[i]
-    dYdLW[i]  <- beta1[6]
+    # X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,4], X1[,2]*X1[,4], X1[,5]*X1[,1], X1[,5]*X1[,2], X1[,5]*X1[,4])
+    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPDant[i] + beta2[1]*TAant[i] + beta2[2]*Sdeep_ant[i] + beta2[4]*PAR_ant[i]
+    dYdT[i]   <- beta1[2] + 2*beta1a[2]*TAant[i] + beta2[1]*VPDant[i] + beta2[3]*Sdeep_ant[i] + beta2[5]*PAR_ant[i]
+    dYdSs[i]  <- beta1[3]
+    dYdSd[i]  <- beta1[4] + beta2[2]*VPDant[i] + beta2[3]*TAant[i] + beta2[6]*PAR_ant[i]
+    dYdPAR[i]  <- beta1[5] + beta2[4]*VPDant[i] + beta2[5]*TAant[i] + beta2[6]*Sdeep_ant[i]
     
     # Put all net sensitivities into one array, for easy monitoring
     dYdX[i,1] <- dYdVPD[i]
@@ -99,7 +93,6 @@ model{
     dYdX[i,3] <- dYdSs[i]
     dYdX[i,4] <- dYdSd[i]
     dYdX[i,5] <- dYdPAR[i]
-    dYdX[i,6] <- dYdLW[i]
   }
   
   # Relatively non-informative priors for regression parameters:
@@ -135,7 +128,6 @@ model{
     dSs[j]   ~ dgamma(1,1)
     dSd[j]   ~ dgamma(1,1)
     dPAR[j]   ~ dgamma(1,1)
-    dLW[j]   ~ dgamma(1,1)
     
     # Compute normalized weights:
     wV[j]    <- dV[j]/sum(dV[])
@@ -143,7 +135,6 @@ model{
     wSs[j]   <- dSs[j]/sum(dSs[])
     wSd[j]   <- dSd[j]/sum(dSd[])
     wPAR[j]   <- dPAR[j]/sum(dPAR[])
-    wLW[j]   <- dLW[j]/sum(dLW[])
   }
   
 
@@ -159,9 +150,4 @@ model{
   var.pred <- pow(sd(mu[Nstart:Nend]),2)
   var.resid <- 1/tau.Y
   R2 <- var.pred/(var.pred + var.resid)
-  
-  # Priors for resonse variable:
-  #tau.Y ~ dgamma(0.1,0.1) # since this is associated with the data model for Y
-  #sig.Y <- 1/sqrt(tau.Y)
-
 }

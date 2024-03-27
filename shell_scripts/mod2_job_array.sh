@@ -7,8 +7,8 @@
 #SBATCH --mem=40000
 #SBATCH --mail-type=all
 #SBATCH --mail-user=egr65@nau.edu
-#SBATCH --array=13-22
-##SBATCH --array=1-24
+#SBATCH --array=7,8
+##SBATCH --array=1-10,15-18
 
 ### %A is monsoon job number %a is interior array index
 

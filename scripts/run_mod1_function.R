@@ -113,12 +113,12 @@ run_mod1 <- function(dataIN, varname, sitename, scale, newinits = F, overwrite =
   
   # jIND file provides indices to calculate interactions between covariates
   # Basically a matrix version of X2, defined in the first initialization later in the script
-  # key: 1 VPD # 2 Tair # 3 Sshall # 4 Sdeep # 5 PAR # 6 LW_OUT
+  # key: 1 VPD # 2 Tair # 3 Sshall # 4 Sdeep # 5 PAR
   # X1a = cbind(X1[,1]^2, X1[,2]^2)
-  # X2 = X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,4], X1[,2]*X1[,3], X1[,2]*X1[,4], X1[,3]*X1[,4], X1[,5]*X1[,1], X1[,5]*X1[,2], X1[,5]*X1[,3], X1[,5]*X1[,4]
-  jIND <- data.frame(j = c(1:15),
-                     ID1 = c(1,1,1,2,2,3,5,5,5,5,6,6,6,6,6),
-                     ID2 = c(2,3,4,3,4,4,1,2,3,4,1,2,3,4,5))
+  # X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,4], X1[,2]*X1[,4], X1[,5]*X1[,1], X1[,5]*X1[,2], X1[,5]*X1[,4])
+  jIND <- data.frame(j = c(1:6),
+                     ID1 = c(1,1,2,5,5,5),
+                     ID2 = c(2,4,4,1,2,4))
   
   # an example from a previous SAM version:
   # X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,5], X1[,1]*X1[,6], X1[,2]*X1[,3], X1[,2]*X1[,5], X1[,2]*X1[,6], 
@@ -163,7 +163,7 @@ run_mod1 <- function(dataIN, varname, sitename, scale, newinits = F, overwrite =
               Nstart = Nstart,
               Nend = Nend,
               Nlag = 7,
-              Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
+              Nparms = 5, # Nparms is the number of driving variables included to calculate main effects
               Y = Y,
               Yday = Yday, # Choose column in YIN that provides indices linking response variables with covariates
               ID1 = jIND[,2], 
@@ -173,8 +173,8 @@ run_mod1 <- function(dataIN, varname, sitename, scale, newinits = F, overwrite =
               Tair = as.vector(scale(as.numeric(dataIN$TA),center=TRUE,scale=TRUE)),
               Sshall = as.vector(scale(as.numeric(dataIN$SWC_shall),center=TRUE,scale=TRUE)),
               Sdeep = as.vector(scale(as.numeric(dataIN$SWC_deep),center=TRUE,scale=TRUE)),
+              #SWC = as.vector(scale(as.numeric(dataIN$SWC),center=TRUE,scale=TRUE)),
               PAR = as.vector(scale(as.numeric(dataIN$PAR),center=TRUE,scale=TRUE)),
-              LW_OUT = as.vector(scale(as.numeric(dataIN$PAR),center=TRUE,scale=TRUE)),
               # covariate timesteps into the past
               # this code is flexible in case we want to combine timesteps,
               # or average over multiple timesteps
@@ -187,7 +187,8 @@ run_mod1 <- function(dataIN, varname, sitename, scale, newinits = F, overwrite =
   
   # Get initials for WUE precision based on the log of previous model versions
   sig.Y = (sd(Y)**2)
-  if(varname=="WUE_GPP" & sitename=="lnf"){ # The Geb site has some weird values, so basing initials off of the standard dev is not good enough
+  #temp
+  if(varname=="WUE_GPP" & sitename=="crk"){ # The crk site has some weird values, so basing initials off of the standard dev is not good enough
     sig.Y = 8 # This is based on the initial value we got for GPP for the Geb site
   }
   
@@ -198,8 +199,7 @@ run_mod1 <- function(dataIN, varname, sitename, scale, newinits = F, overwrite =
               data$Tair[Yday[Nstart:Nend]], #2
               data$Sshall[Yday[Nstart:Nend]], #3
               data$Sdeep[Yday[Nstart:Nend]], #4
-              data$PAR[Yday[Nstart:Nend]], #5
-              data$LW_OUT[Yday[Nstart:Nend]] #6
+              data$PAR[Yday[Nstart:Nend]] #5
               ) 
   
   # Notes: The code below is indexed numerically, which you will have to pay attention to as you change covariates of interest
@@ -207,18 +207,17 @@ run_mod1 <- function(dataIN, varname, sitename, scale, newinits = F, overwrite =
   X1a = cbind(X1[,1]^2, X1[,2]^2) 
   # Put all covariates together;
   # Interactions incorporated into linear model used to estimate initial values
-  X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,4], X1[,2]*X1[,3], X1[,2]*X1[,4], 
-              X1[,3]*X1[,4], X1[,5]*X1[,1], X1[,5]*X1[,2], X1[,5]*X1[,3], X1[,5]*X1[,4],
-              X1[,6]*X1[,1], X1[,6]*X1[,2], X1[,6]*X1[,3], X1[,6]*X1[,4], X1[,6]*X1[,5])
+  X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,4], X1[,2]*X1[,4], 
+              X1[,5]*X1[,1], X1[,5]*X1[,2], X1[,5]*X1[,4])
   # Fit simple linear model
   fit <- lm(Y[Nstart:Nend] ~ X1[,1] + X1[,2] + X1[,3] + X1[,4] + X1[,5] + # main effects
               X1a[,1] + X1a[,2] + # squared
-              X2[,1] + X2[,2] + X2[,3] + X2[,4] + X2[,5] + X2[,6] + X2[,7] + X2[,8] + X2[,9] + X2[,10] + X2[,11] + X2[,12] + X2[,13] + X2[,14] + X2[,15]) # interactions
+              X2[,1] + X2[,2] + X2[,3] + X2[,4] + X2[,5] + X2[,6]) # interactions
   # Extract coefficient estimates:
   beta0  = fit$coefficients[1] # the intercept
-  beta1  = fit$coefficients[2:7] # main effects
-  beta1a = fit$coefficients[8:9] # squared effects
-  beta2 = fit$coefficients[10:24] # interactive effects
+  beta1  = fit$coefficients[2:6] # main effects
+  beta1a = fit$coefficients[7:8] # squared effects
+  beta2 = fit$coefficients[9:14] # interactive effects
   
   # Create initials based on the above estimates:
   inits = list(list(beta0 = beta0, beta1 = beta1, beta1a = beta1a, beta2 = beta2, sig.Y = sig.Y), #pink
@@ -237,6 +236,16 @@ run_mod1 <- function(dataIN, varname, sitename, scale, newinits = F, overwrite =
       
       initslist <- saved_state[[2]]
       
+      # temp
+      if(length(saved_state[[2]][[1]][["beta2"]])>6){
+        inits2 <- saved_state[[2]]
+        inits2[[1]][["beta2"]] <- inits2[[1]][["beta2"]][1:6]
+        inits2[[2]][["beta2"]] <- inits2[[2]][["beta2"]][1:6]
+        inits2[[3]][["beta2"]] <- inits2[[3]][["beta2"]][1:6]
+        
+        initslist <- inits2
+      }
+      
     }else if(!file.exists(initfilename)){
       initslist <- inits
     }
@@ -251,10 +260,11 @@ run_mod1 <- function(dataIN, varname, sitename, scale, newinits = F, overwrite =
   # parameters to track
   params = c("deviance", # deviance
              "beta0","beta1","beta1a","beta2", # intercept, main effects, squared effects, interactive effects
-             "dYdX", # net sensitivites
+             "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp", # for p-values
+             "dYdX", # net sensitivities
              "sig.Y", # variance of Y
              "wV","wT","wSs","wSd","wPAR", # importance weights
-             "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp") # model fit
+             "R2", "Dsum") # model fit
     
 # Run model with jagsui package
 start<-proc.time() # keep track of run time
@@ -265,7 +275,7 @@ jagsui <- jags(data = data,
                    n.chains = 3,
                    n.adapt = 500,
                    n.thin = ifelse(test==F,3,1),
-                   n.iter = ifelse(test==F,20000,200),
+                   n.iter = ifelse(test==F,50000,200),
                    parallel = ifelse(test==F,TRUE, FALSE))
 end<-proc.time()
 elapsed<- (end-start)/60

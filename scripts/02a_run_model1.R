@@ -21,8 +21,8 @@ JAGS.seed<-ceiling(runif(1,1,10000000))
 test=F
 if(test==T){
   varname <- 1
-  sitename <- 1
-  scale = 2
+  sitename <- 7
+  scale = 1
 }
 
 # key for which response variable corresponds to which index
@@ -65,7 +65,14 @@ if(sitename == 1){
 } else if(sitename == 7){
   sitename = "sq"
   load("./data_clean/sqdat.RData")
+} else if(sitename == 8){
+  sitename = "lm1g"
+  load("data_clean/maggdat.RData")
+} else if(sitename == 9){
+  sitename = "lm1t"
+  load("./data_clean/magtdat.RData")
 }
+
 
 if(scale == 1){
   scale = "halfhour"
@@ -100,13 +107,13 @@ source("./scripts/functions.R")
 source("./scripts/run_mod1_function.R")
 
 # Aggegrate according to scale
-if(scale == "hour"){ # aggregate by hour
-  dat <- dat %>%
-    select(-X) %>%
-    mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
-    group_by(DOY,hour) %>%
-    summarise(across(everything(), mean, na.rm = T))
-}
+# if(scale == "hour"){ # aggregate by hour
+#   dat <- dat %>%
+#     select(-X) %>%
+#     mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
+#     group_by(DOY,hour) %>%
+#     summarise(across(everything(), mean, na.rm = T))
+# }
 # if(scale == "daily"){ # aggregate by day
 #   dat <- dat %>%
 #     select(-X) %>%
@@ -119,7 +126,7 @@ lowdev = F
 
 # Run mod1
 run_mod1(dat, varname = varname, sitename = sitename, scale,  # data and naming conventions
-         newinits = T, overwrite = T, lowdev=lowdev) # model specifics
+         newinits = F, overwrite = T, lowdev=lowdev) # model specifics
 
 
 
