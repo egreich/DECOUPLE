@@ -15,4 +15,3 @@ Repository for scripts related to the FLUXNET Secondment project: Decoupling of 
   - JAGS scripts for each model, saved as .R files
 * output_ folders
   - model outputs
-* plots
