@@ -6,7 +6,7 @@ Repository for scripts related to the FLUXNET Secondment project: Decoupling of 
 ### Folder descriptions
 
 * scripts
-  - script workflow labeled as 00-05, from data cleaning to running the models
+  - script workflow labeled as 00a-02b, from data cleaning to running the models
 * shell_scripts
   - bash scripts for running models on an HPC (slurm).
 * END files and Slurm_jobs_3chains.csv
