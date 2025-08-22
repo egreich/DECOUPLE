@@ -123,7 +123,7 @@ laedat <- data.frame(
   TA = laedatin$TA_1_1_1,
   SW_IN = laedatin$SWIN_1_1_1,
   LW_IN = laedatin$LWIN_1_1_1,
-  VPD = laedatin$VPD,
+  VPD = as.numeric(laedatin$VPD)/10,
   RH = laedatin$RH,
   PA = laedatin$air_pressure,
   P = as.numeric(laedatin$P_RAIN_1_1_1)*1000, # convert m to mm
@@ -207,6 +207,13 @@ crktemp4 <- as.data.frame(crktemp3)
 
 crk_ref <- as.data.frame(crktemp[["datr"]][[27]])
 
+# Read in Crk LAI data
+laidatin <- read.csv("./data_raw/KR-Crk/statistics_Lai_500m.csv")
+laidatin <- laidatin %>%
+  select(dt,value_center) %>%
+  rename(date = dt, LAI = value_center)
+laidatin$date <- as.Date(laidatin$date)
+
 crkdat <- data.frame(
   Year = 2016,
   DOY = crkdatin$DOY,
@@ -241,14 +248,19 @@ crkdat <- data.frame(
   #PRI,
   Ref_1 = rowMeans(crk_ref, na.rm = T),
   Gs = crkdatin$Gs_ms,
-  T_TEA = NA,
-  LAI = NA
+  T_TEA = NA
 )
 
 crkdat[crkdat==-9999] <- NA # replace -9999 with NAs
 
 # Fix TIMESTAMP
 crkdat$TIMESTAMP <- mdy_hm(paste(crkdat$TIMESTAMP))
+
+# Join LAI by date
+crkdat$date <- as.Date(crkdat$TIMESTAMP)
+crkdat <- left_join(crkdat, laidatin, by="date")
+crkdat <- crkdat %>%
+  select(-c(date))
 
 write.csv(crkdat, file = "data_formatted/KR-Crk/Crk_dat.csv") # save data as csv file
 
@@ -355,7 +367,7 @@ gebdat <- data.frame(
   TA = gebdatin$TA_1_1_1,
   SW_IN = gebdatin$SWIN_1_1_1,
   LW_IN = gebdatin$LWIN_1_1_1,
-  VPD = gebdatin$VPD,
+  VPD = as.numeric(gebdatin$VPD)/1000,
   RH = gebdatin$RH,
   PA = gebdatin$air_pressure,
   P = gebdatin$P_RAIN_1_1_1,
@@ -498,6 +510,14 @@ tmp_lai <- tmp_lai %>%
   select(date, LAI)
 
 
+# Read in Lnf LAI data
+laidatin <- read.csv("./data_raw/DE-Lnf/statistics_Lai_500m.csv")
+laidatin <- laidatin %>%
+  select(dt,value_center) %>%
+  rename(date = dt, LAI = value_center)
+laidatin$date <- as.Date(laidatin$date)
+
+
 # Load Leinefelde data
 lnfdatin_full <- read.csv("./data_raw/DE-Lnf/DE-Lnf_dat_full.csv")
 lnfdatin <- read.csv("./data_raw/DE-Lnf/DE-Lnf_dat.csv")
@@ -560,7 +580,7 @@ lnfdat_full <- data.frame(
   SW_IN = lnfdatin$SW_IN_SPN1,
   VPD = lnfdatin$VPD,
   RH = lnfdatin$RH,
-  PA = lnfdatin$air_pressure/1000, # convert to kPa
+  PA = lnfdatin$air_pressure/100, # convert to kPa
   P = lnfdatin$P44,
   WS = lnfdatin$WS,
   PAR = lnfdatin$PPFD_IN,
@@ -593,7 +613,7 @@ lnfdat <- data.frame(
   TIMESTAMP = lnfdat$TIMESTAMP,
   TA = lnfdat$TA.x,
   SW_IN = lnfdat$SW_IN.x,
-  VPD = lnfdat$VPD.x,
+  VPD = as.numeric(lnfdat$VPD.x)/10,
   RH = lnfdat$RH.x,
   PA = lnfdat$PA,
   P = lnfdat$P,
@@ -617,8 +637,7 @@ lnfdat <- data.frame(
   Ref_750 = lnfdat$Ref_750,
   Ref_760 = lnfdat$Ref_760,
   Gs = lnfdat$Gs.x,
-  T_TEA = NA,
-  LAI = NA
+  T_TEA = NA
 )
 
 lnfdat[lnfdat==-9999] <- NA # replace -9999 with NAs
@@ -628,6 +647,12 @@ lnfdat$SWC_1 <- lnfdat$SWC_1/100
 lnfdat$SWC_2 <- lnfdat$SWC_2/100
 lnfdat$SWC_3 <- lnfdat$SWC_3/100
 lnfdat$SWC_4 <- lnfdat$SWC_4/100
+
+# Join LAI by date
+lnfdat$date <- as.Date(lnfdat$TIMESTAMP)
+lnfdat <- left_join(lnfdat, laidatin, by="date")
+lnfdat <- lnfdat %>%
+  select(-c(date))
 
 write.csv(lnfdat, file = "data_formatted/DE-Lnf/DE-Lnf_dat.csv") # save data as csv file
 
@@ -741,7 +766,7 @@ yatdat_full <- data.frame(
   TA = yatdatin_full$TA_1_1_1,
   SW_IN = yatdatin_full$SWIN_1_1_1,
   LW_IN = yatdatin_full$LWIN_1_1_1,
-  VPD = as.numeric(yatdatin_full$VPD)/100, # Pa to kPa
+  VPD = as.numeric(yatdatin_full$VPD)/1000, # Pa to kPa
   RH = yatdatin_full$RH,
   PA = yatdatin_full$air_pressure,
   P = yatdatin_full$P_RAIN_1_1_1,
@@ -821,6 +846,116 @@ yatdat$SWC_4 <- as.numeric(yatdat$SWC_4)/100
 
 write.csv(yatdat, file = "data_formatted/IL-yat/IL-yat_dat.csv") # save data as csv file
 
+##################################################### Majadas
+
+# Data from David
+majdatin <- read.csv("./data_raw/ES-Lm1/all_M_monimean.csv")
+majdatin$rDate_hour <-gsub("Z","",as.character(majdatin$rDate_hour))
+majdatin$rDate_hour <-gsub("T"," ",as.character(majdatin$rDate_hour))
+majdatin$TIMESTAMP <-as.POSIXct(majdatin$rDate_hour, format = "%Y-%m-%d %H:%M:%S", tz = "CET")
+
+# FLUXNET Data (for soil moisture and temp)
+options(scipen=999) # turn off scientific notation for dates
+fluxmajdatin <- read.csv("./data_raw/ES-Lm1/FLX_ES-LM1_FLUXNET2015_FULLSET_HH_2014-2020_beta-3.csv")
+fluxmajdatin <- fluxmajdatin %>%
+  filter(TIMESTAMP_START %in% c(201801010000:201901010000))# filter for 2018
+fluxmajdatin$TIMESTAMP <-as.POSIXct(as.character(fluxmajdatin$TIMESTAMP_START), format = "%Y%m%d%H%M", tz = "CET", 
+                                    origin = "2018-01-01")
+
+# TEA
+teamajdatin <- read.csv("./data_raw/ES-Lm1/CT_Flux_Meteo_BL.csv")
+teamajdatin$TIMESTAMP <-as.POSIXct(as.character(teamajdatin$DateTime), format = "%Y-%m-%d %H:%M:%S", tz = "CET", 
+                                   origin = "2014-03-20")
+
+
+# Combine dataframes
+majdatin <- left_join(majdatin, fluxmajdatin, by = "TIMESTAMP")
+majdatin <- left_join(majdatin, teamajdatin, by = "TIMESTAMP")
+
+# Read in Lm1 LAI data
+laidatin <- read.csv("./data_raw/ES-Lm1/statistics_Lai_500m.csv")
+laidatin <- laidatin %>%
+  select(dt,value_center) %>%
+  rename(date = dt, LAI = value_center)
+laidatin$date <- as.Date(laidatin$date)
+
+
+# Reformat
+majdat <- data.frame(
+  Year = majdatin$year,
+  DOY = majdatin$check_DOY,
+  TIMESTAMP = majdatin$TIMESTAMP,
+  TA = majdatin$Tair_f,
+  SW_IN = majdatin$SW_in,
+  LW_IN = majdatin$LW_in,
+  LW_OUT = majdatin$LW_out,
+  VPD = as.numeric(majdatin$VPD_f)/10,
+  RH = majdatin$Rh_f,
+  PA = majdatin$PA_F, # check units
+  P = as.numeric(majdatin$Precip_1_Tot), # convert m to mm
+  WS = majdatin$wind_speed,
+  PAR = majdatin$PAR_mW_m2_sr1,
+  APAR = majdatin$APAR_li_moreau_mW_m2_nm1_sr,
+  SW_OUT = majdatin$SW_out,
+  LW_OUT = majdatin$LW_out,
+  LE = majdatin$LE_f,
+  ET = convert.LE.to.ET(scale = "hour", majdatin$Tair_f, majdatin$LE_f),
+  H = majdatin$H_f,
+  NEE = majdatin$NEE_uStar_f,
+  GPP = majdatin$GPP_MR_f,
+  SWC_1 = majdatin$SWC_F_MDS_1,
+  SWC_2 = majdatin$SWC_F_MDS_2,
+  SWC_3 = majdatin$SWC_F_MDS_3,
+  SWC_4 = majdatin$SWC_F_MDS_4,
+  TS_1 = majdatin$TS_F_MDS_1,
+  TS_2 = majdatin$TS_F_MDS_2,
+  TS_3 = majdatin$TS_F_MDS_3,
+  TS_4 = majdatin$TS_F_MDS_4,
+  TS_5 = majdatin$TS_F_MDS_5,
+  TS_6 = majdatin$TS_F_MDS_6,
+  TS_7 = majdatin$TS_F_MDS_7,
+  SIF_O2A = majdatin$SIF_A_sfm..mW.m.2nm.1sr.1.,
+  SIF_O2B = majdatin$SIF_B_sfm..mW.m.2nm.1sr.1.,
+  NDVI = majdatin$NDVI,
+  PRI = majdatin$PRI,
+  Ref_750 = majdatin$Reflectance.750....,
+  Ref_760 = majdatin$Reflectance.760....,
+  Gs = majdatin$Gs_mol,
+  T_TEA = majdatin$TEA_T,
+  filter_flag = majdatin$sif_filter_flag
+)
+
+majdat[,4:(ncol(majdat)-1)] <- sapply(majdat[,4:ncol(majdat)], as.numeric) # -1 to account for flag filter at end
+
+majdat[majdat==-9999] <- NA # replace -9999 with NAs
+
+# convert SWC to fraction
+majdat$SWC_1 <- majdat$SWC_1/100
+majdat$SWC_2 <- majdat$SWC_2/100
+majdat$SWC_3 <- majdat$SWC_3/100
+majdat$SWC_4 <- majdat$SWC_4/100
+
+# Join LAI by date
+majdat$date <- as.Date(majdat$TIMESTAMP)
+majdat <- left_join(majdat, laidatin, by="date")
+majdat <- majdat %>%
+  select(-c(date))
+
+# separate grass and tree measurements
+majgdat <- majdat %>% # grass
+  filter(filter_flag == "1_grass") %>%
+  select(-filter_flag)
+
+majtdat <- majdat %>% # tree
+  filter(filter_flag == "1_tree")%>%
+  select(-filter_flag)
+
+write.csv(majgdat, file = "data_formatted/ES-Lm1/ES-Lm1_grass_dat.csv") # save data as csv file
+write.csv(majtdat, file = "data_formatted/ES-Lm1/ES-Lm1_tree_dat.csv") # save data as csv file
+
+# Not using the sites below; not enough data available for regression/ DEPART model
+##########################################################################################################
+########################################################################################################## 
 
 ##################################################### Jrs
 
@@ -885,6 +1020,12 @@ jrsdat$time <- sub("^\\S+\\s+", '', jrsdat$time)
 jrsdat$date <-as.Date(as.numeric(jrsdat$DOY), origin = "2019-01-01")
 jrsdat$TIMESTAMP = ymd_hms(paste(jrsdat$date, jrsdat$time))
 
+# Create a column of all dates
+hh<- data.frame(TIMESTAMP=seq(as.POSIXct("2019-07-02 06:30:00","%Y-%m-%d %H:%M:%S"), as.POSIXct("2019-11-10 17:30:00","%Y-%m-%d %H:%M:%S"), by="hour"))
+hh30<- data.frame(TIMESTAMP=seq(as.POSIXct("2019-07-02 07:00:00","%Y-%m-%d %H:%M:%S"), as.POSIXct("2019-11-10 18:00:00","%Y-%m-%d %H:%M:%S"), by="hour"))
+fulltimes <- merge(hh,hh30,by = "TIMESTAMP",all.x=T,all.y=T)
+jrsdat <- merge(jrsdat, fulltimes,by = "TIMESTAMP",all.x=T,all.y=T)
+
 # Pick which columns to include
 jrsdat <- jrsdat %>%
   select(-c(time,date)) %>%
@@ -899,8 +1040,9 @@ write.csv(jrsdat, file = "data_formatted/Jrs/Jrs_dat.csv") # save data as csv fi
 ##################################################### Sq
 
 # temp
-test <- readMat("/Users/megreich/Documents/Emma/NAU/Secondment/Qian_files/Original_data/sq/2017/d17.mat")
-test <-  as.data.frame(test[["d17"]])
+# library(R.matlab)
+# test <- readMat("/Users/megreich/Documents/Emma/NAU/Secondment/Qian_files/Original_data/sq/2017/d17.mat")
+# test <-  as.data.frame(test[["d17"]])
 
 # Load sq data
 sqdatin17 <- read.csv("./data_raw/Sq/Sq_2017_dat.csv")
@@ -941,6 +1083,7 @@ sqdat <- data.frame(
   SWC_1_1_1 = sqdatin$SWC_1_1_1,
   SWC_1_2_1 = sqdatin$SWC_1_2_1,
   SWC_1_3_1 = sqdatin$SWC_1_3_1,
+  TS_1_1_1 = sqdatin$TS_1_1_1,
   SIF_O2A = sqdatin$SIF_O2A,
   NDVI = sqdatin$NDVI,
   PRI = sqdatin$PRI,
@@ -987,101 +1130,6 @@ sqdat$Year <- format(as.Date(sqdat$TIMESTAMP, "%Y-%m-%d %H:%M:%S"), "%Y")
 sqdat[sqdat==-9999] <- NA # replace -9999 with NAs
 
 write.csv(sqdat, file = "data_formatted/sq/sq_dat.csv") # save data as csv file
-
-
-##################################################### Majadas
-
-# Data from David
-majdatin <- read.csv("./data_raw/ES-Lm1/all_M_monimean.csv")
-majdatin$rDate_hour <-gsub("Z","",as.character(majdatin$rDate_hour))
-majdatin$rDate_hour <-gsub("T"," ",as.character(majdatin$rDate_hour))
-majdatin$TIMESTAMP <-as.POSIXct(majdatin$rDate_hour, format = "%Y-%m-%d %H:%M:%S", tz = "CET")
-
-# FLUXNET Data (for soil moisture and temp)
-options(scipen=999) # turn off scientific notation for dates
-fluxmajdatin <- read.csv("./data_raw/ES-Lm1/FLX_ES-LM1_FLUXNET2015_FULLSET_HH_2014-2020_beta-3.csv")
-fluxmajdatin <- fluxmajdatin %>%
-  filter(TIMESTAMP_START %in% c(201801010000:201901010000))# filter for 2018
-fluxmajdatin$TIMESTAMP <-as.POSIXct(as.character(fluxmajdatin$TIMESTAMP_START), format = "%Y%m%d%H%M", tz = "CET", 
-                                    origin = "2018-01-01")
-
-# TEA
-teamajdatin <- read.csv("./data_raw/ES-Lm1/CT_Flux_Meteo_BL.csv")
-teamajdatin$TIMESTAMP <-as.POSIXct(as.character(teamajdatin$DateTime), format = "%Y-%m-%d %H:%M:%S", tz = "CET", 
-                                    origin = "2014-03-20")
-
-
-# Combine dataframes
-majdatin <- left_join(majdatin, fluxmajdatin, by = "TIMESTAMP")
-majdatin <- left_join(majdatin, teamajdatin, by = "TIMESTAMP")
-
-
-# Reformat
-majdat <- data.frame(
-  Year = majdatin$year,
-  DOY = majdatin$check_DOY,
-  TIMESTAMP = majdatin$TIMESTAMP,
-  TA = majdatin$Tair_f,
-  SW_IN = majdatin$SW_in,
-  LW_IN = majdatin$LW_in,
-  LW_OUT = majdatin$LW_out,
-  VPD = majdatin$VPD_f,
-  RH = majdatin$Rh_f,
-  PA = majdatin$PA_F, # check units
-  P = as.numeric(majdatin$Precip_1_Tot), # convert m to mm
-  WS = majdatin$wind_speed,
-  PAR = majdatin$PAR_mW_m2_sr1,
-  APAR = majdatin$APAR_li_moreau_mW_m2_nm1_sr,
-  SW_OUT = majdatin$SW_out,
-  LW_OUT = majdatin$LW_out,
-  LE = majdatin$LE_f,
-  ET = convert.LE.to.ET(scale = "hour", majdatin$Tair_f, majdatin$LE_f),
-  H = majdatin$H_f,
-  NEE = majdatin$NEE_uStar_f,
-  GPP = majdatin$GPP_MR_f,
-  SWC_1 = majdatin$SWC_F_MDS_1,
-  SWC_2 = majdatin$SWC_F_MDS_2,
-  SWC_3 = majdatin$SWC_F_MDS_3,
-  SWC_4 = majdatin$SWC_F_MDS_4,
-  TS_1 = majdatin$TS_F_MDS_1,
-  TS_2 = majdatin$TS_F_MDS_2,
-  TS_3 = majdatin$TS_F_MDS_3,
-  TS_4 = majdatin$TS_F_MDS_4,
-  TS_5 = majdatin$TS_F_MDS_5,
-  TS_6 = majdatin$TS_F_MDS_6,
-  TS_7 = majdatin$TS_F_MDS_7,
-  SIF_O2A = majdatin$SIF_A_sfm..mW.m.2nm.1sr.1.,
-  SIF_O2B = majdatin$SIF_B_sfm..mW.m.2nm.1sr.1.,
-  NDVI = majdatin$NDVI,
-  PRI = majdatin$PRI,
-  Ref_750 = majdatin$Reflectance.750....,
-  Ref_760 = majdatin$Reflectance.760....,
-  Gs = majdatin$Gs_mol,
-  T_TEA = majdatin$TEA_T,
-  filter_flag = majdatin$sif_filter_flag
-)
-
-majdat[,4:(ncol(majdat)-1)] <- sapply(majdat[,4:ncol(majdat)], as.numeric) # -1 to account for flag filter at end
-
-majdat[majdat==-9999] <- NA # replace -9999 with NAs
-
-# convert SWC to fraction
-majdat$SWC_1 <- majdat$SWC_1/100
-majdat$SWC_2 <- majdat$SWC_2/100
-majdat$SWC_3 <- majdat$SWC_3/100
-majdat$SWC_4 <- majdat$SWC_4/100
-
-# separate grass and tree measurements
-majgdat <- majdat %>% # grass
-  filter(filter_flag == "1_grass") %>%
-  select(-filter_flag)
-
-majtdat <- majdat %>% # tree
-  filter(filter_flag == "1_tree")%>%
-  select(-filter_flag)
-
-write.csv(majgdat, file = "data_formatted/ES-Lm1/ES-Lm1_grass_dat.csv") # save data as csv file
-write.csv(majtdat, file = "data_formatted/ES-Lm1/ES-Lm1_tree_dat.csv") # save data as csv file
 
 
 ##################################################### US Sites

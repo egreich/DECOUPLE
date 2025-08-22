@@ -62,6 +62,39 @@ dat$ET <- fill_linear(dat, dat$ET)
 dat$TS <- fill_linear(dat, dat$TS)
 dat$WS <- fill_linear(dat, dat$WS)
 
+library(cleaRskyQuantileRegression)
+dat$Rsdpot_12 = calc_PotRadiation_CosineResponsePower(doy = dat$DOY, hour = dat$DOY,
+                                                      latDeg = 	47.4783,
+                                                      longDeg = 8.3644,
+                                                      timeZone = 0, isCorrectSolartime = TRUE,
+                                                      cosineResponsePower = 1.2 )
+
+library(latticeExtra)
+lab_Rsdpot12_name = expression(bold("Potential Shortwave Radiation ")(W*m^-2))
+lab_Rsd      = expression(bold("Observed Shortwave Radiation ")(W*m^-2))
+xyplot(SW_IN ~  Rsdpot_12, data = dat,
+       xlab = list(lab_Rsdpot12_name,cex = 1.3), ylab = list(label=lab_Rsd, cex=1.3),
+       type = c("p","g"), pch = ".", cex = 3,
+       # main = paste0(dtyrmon[SiteCode == sico, unique(SiteName)]," ,Quantile Regression, tau = 0.90" ),
+       panel = function(x, y, ...) {
+         panel.xyplot(x, y, ...)
+         panel.abline(rq(y~x, tau = 0.85), col=1, lwd = 2)
+         # panel.abline(0,1, col=1, lty = 2, lwd = 2)
+         panel.ablineq(0,1, col=1, lty = 2, lwd = 2, at = 0.89, label = "1:1", rotate = TRUE, fontfamily = "sans", cex = 1.5,pos = 3)
+         panel.ablineq(rq(y~x, tau = 0.85), col=1, at = 0.7, rotate =TRUE,
+                       pos = 3, label = "Slope of 85% Quantile", cex = 1.5, font = "Helvetica", fontface = 2 )
+         panel.text(700,-20, "half hourly data", fontfamily = "Helvetica")
+       },
+       grid = TRUE)
+
+eq85 <- calc_ClearSky_QuantileRegression(dat$SW_IN, dat$Rsdpot_12)
+
+sum(is.na(dat$SIF_O2A))
+
+dat <- dat %>%
+  mutate(SIF_O2A = ifelse((Rsdpot_12>SW_IN) & (SW_IN>eq85$value[5]*Rsdpot_12+eq85$value[1]), NA, SIF_O2A))
+
+
 dat <- dat %>%
   mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
   group_by(date,hour,DOY) %>%
@@ -88,6 +121,9 @@ dat <- dat %>%
             WUE_SIF_TEA = sum(SIF_O2A, na.rm=T)/sum(T_TEA, na.rm=T)
   ) %>%
   ungroup()
+
+
+plot(dat$TA,dat$SIF_O2A)
 
 # ##################### temp pasted from yatir
 # # temp - note that this shows decoupling
@@ -177,33 +213,6 @@ dat <- dat %>%
 # grid.arrange(p1,p2, nrow=2)
 # 
 # 
-# library(cleaRskyQuantileRegression)
-# dat$Rsdpot_12 = calc_PotRadiation_CosineResponsePower(doy = dat$DOY, hour = dat$DOY,
-#                                                           latDeg = 51.3282,
-#                                                           longDeg = 10.3678,
-#                                                           timeZone = 0, isCorrectSolartime = TRUE,
-#                                                           cosineResponsePower = 1.2 )
-# 
-# library(latticeExtra)
-# lab_Rsdpot12_name = expression(bold("Potential Shortwave Radiation ")(W*m^-2))
-# lab_Rsd      = expression(bold("Observed Shortwave Radiation ")(W*m^-2))
-# xyplot(SW_IN ~  Rsdpot_12, data = dat,
-#        xlab = list(lab_Rsdpot12_name,cex = 1.3), ylab = list(label=lab_Rsd, cex=1.3),
-#        type = c("p","g"), pch = ".", cex = 3,
-#        # main = paste0(dtyrmon[SiteCode == sico, unique(SiteName)]," ,Quantile Regression, tau = 0.90" ),
-#        panel = function(x, y, ...) {
-#          panel.xyplot(x, y, ...)
-#          panel.abline(rq(y~x, tau = 0.85), col=1, lwd = 2)
-#          # panel.abline(0,1, col=1, lty = 2, lwd = 2)
-#          panel.ablineq(0,1, col=1, lty = 2, lwd = 2, at = 0.89, label = "1:1", rotate = TRUE, fontfamily = "sans", cex = 1.5,pos = 3)
-#          panel.ablineq(rq(y~x, tau = 0.85), col=1, at = 0.7, rotate =TRUE,
-#                        pos = 3, label = "Slope of 85% Quantile", cex = 1.5, font = "Helvetica", fontface = 2 )
-#          panel.text(700,-20, "half hourly data", fontfamily = "Helvetica")
-#        },
-#        grid = TRUE)
-# 
-# test <- calc_ClearSky_QuantileRegression(dat$SW_IN, dat$Rsdpot_12)
-
 
 save(dat, file = "data_clean/laedat.RData") # save prepped data as R file, this will be the model input
 
@@ -294,6 +303,7 @@ dat <- dat %>%
   )
 
 #dat <- left_join(dat, r_df)
+#plot(dat$TA, dat$GPP)
 
 # Fill small gaps
 dat$TA <- fill_linear(dat, dat$TA)
@@ -462,6 +472,7 @@ dat <- dat %>%
   ungroup()
 
 
+# library(cleaRskyQuantileRegression)
 # dat$Rsdpot_12 = calc_PotRadiation_CosineResponsePower(doy = dat$DOY, hour = dat$DOY,
 #                                                       latDeg = 31.345306,
 #                                                       longDeg = 35.051861,
@@ -487,7 +498,7 @@ dat <- dat %>%
 #        grid = TRUE)
 # 
 # test <- calc_ClearSky_QuantileRegression(dat$SW_IN, dat$Rsdpot_12)
-
+# 
 
 save(dat, file = "data_clean/yatdat.RData") # save prepped data as R file, this will be the model input
 
@@ -525,6 +536,7 @@ dat$ET <- fill_linear(dat, dat$ET)
 dat$TS <- fill_linear(dat, dat$TS)
 dat$WS <- fill_linear(dat, dat$WS)
 
+
 dat <- dat %>%
   mutate(hour = format(dat$TIMESTAMP, format ="%H"), DOY = floor(DOY)) %>%
   group_by(date,hour,DOY) %>%
@@ -536,7 +548,7 @@ dat <- dat %>%
             PA = mean(PA, na.rm=T),
             P = sum(P, na.rm=T),
             WS = mean(WS, na.rm=T),
-            #PAR = NA, #temp
+            PAR = mean(PAR, na.rm=T),
             ET = sum(ET, na.rm=T),
             GPP = sum(GPP, na.rm=T),
             SIF_O2A = sum(SIF_O2A, na.rm=T),
@@ -615,6 +627,7 @@ dat <- dat %>%
     SWC_shall = SWC_1_1_1,
     SWC_deep = SWC_1_3_1,
     SWC = rowMeans(dat[grep('SWC', names(dat))], na.rm = T),
+    TS = TS_1_1_1,
     # define WUE to relate carbon to water fluxes
     WUE_GPP = GPP/ET,
     WUE_SIF = SIF_O2A/ET
@@ -629,6 +642,12 @@ dat$PAR <- fill_linear(dat, dat$PAR)
 dat$SWC_shall <- fill_linear(dat, dat$SWC_shall)
 dat$SWC_deep <- fill_linear(dat, dat$SWC_deep)
 dat$ET <- fill_linear(dat, dat$ET)
+# predict Tsoil based on Tair
+lm_temp <- lm(TA ~ TS, data = dat)
+int_temp <- coef(lm_temp)[1]
+slope_temp <- coef(lm_temp)[2]
+new_TS <- ifelse(is.na(dat$TS), slope_temp * dat$TA + int_temp, dat$TS)
+dat$Tsoil <- new_TS
 dat$TS <- fill_linear(dat, dat$TS)
 dat$WS <- fill_linear(dat, dat$WS)
 
@@ -747,7 +766,7 @@ dat <- dat %>%
   ) %>%
   ungroup()
 
-save(dat, file = "data_clean/maggdat.RData") # save prepped data as R file, this will be the model input
+save(dat, file = "data_clean/lm1gdat.RData") # save prepped data as R file, this will be the model input
 
 ##################################################### Majt
 # Load Majt data
@@ -805,7 +824,7 @@ dat <- dat %>%
   ) %>%
   ungroup()
 
-save(dat, file = "data_clean/magtdat.RData") # save prepped data as R file, this will be the model input
+save(dat, file = "data_clean/lm1tdat.RData") # save prepped data as R file, this will be the model input
 
 
 

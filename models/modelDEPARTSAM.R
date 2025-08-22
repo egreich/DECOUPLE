@@ -1,5 +1,5 @@
 ### Model 2
-### SAM model for WUE (either GPP/T or SIF/T)
+### SAM model for T integrated with DEPART
 
 model{
   for(i in Nstart:Nend){
@@ -18,8 +18,10 @@ model{
     
     # Predicted transpiration
     # This is WUE = Photosynthesis/Transpiration rewritten to solve for T
-    WUE.pred.int[i] <- ifelse(WUE.pred[i]==0, 0.0000000000000001, WUE.pred[i]) # intermediate calculation trick to ensure the denominator is not 0
-    T.pred[i] <- (1/WUE.pred.int[i])*Phot[i] # Phot (photosynthesis) is the numerator, either GPP or SIF
+    #WUE.pred.int[i] <- ifelse(WUE.pred[i]==0, 0.0000000000000001, WUE.pred[i]) # intermediate calculation trick to ensure the denominator is not 0
+    #T.pred[i] <- (1/WUE.pred.int[i])*Phot[i] # Phot (photosynthesis) is the numerator, either GPP or SIF
+    T.pred.int[i] <- ifelse(T.pred[i]==0, 0.0000000000000001, T.pred[i]) # intermediate calculation trick to ensure the denominator is not 0
+    WUE.pred[i] <- Phot[i]/T.pred.int[i]
 
     # Compute squared difference for calculating posterior predictive loss
     sqdiff[i] <- pow(ET.rep[i]-ET[i],2)
@@ -63,10 +65,8 @@ model{
     
     #################### start SAM model ###################################################
     
-    # Regression (mean) model
-    #WUE.pred[i] <- log.WUE[i]
-    WUE.pred[i] <- exp(log.WUE[i]) # force mean to be positive, transform from log scale
-    log.WUE[i] <- beta0 + main.effects[i] + squared.terms[i] + interactions[i] 
+    # Regression model
+    T.pred[i] <- beta0 + main.effects[i] + squared.terms[i] + interactions[i] 
     
     # Define parts involving main effects, quadratic effects, and 2-way interactions
     main.effects[i]  <- sum(X.effect[,i])
@@ -136,11 +136,11 @@ model{
     dYdPAR[i]  <- beta1[5] + beta2[4]*VPDant[i] + beta2[5]*TAant[i] + beta2[6]*Sdeep_ant[i]
     
     # Put all net sensitivities into one array, for easy monitoring
-    dYdX[i,1] <- dYdVPD[i] * WUE.pred[i] #  * WUE.pred[i] converts the net sensitivities off the log scale
-    dYdX[i,2] <- dYdT[i] * WUE.pred[i]
-    dYdX[i,3] <- dYdSs[i] * WUE.pred[i]
-    dYdX[i,4] <- dYdSd[i] * WUE.pred[i]
-    dYdX[i,5] <- dYdPAR[i] * WUE.pred[i]
+    dYdX[i,1] <- dYdVPD[i]
+    dYdX[i,2] <- dYdT[i]
+    dYdX[i,3] <- dYdSs[i]
+    dYdX[i,4] <- dYdSd[i]
+    dYdX[i,5] <- dYdPAR[i]
   }
   
   # Relatively non-informative priors for regression parameters:
